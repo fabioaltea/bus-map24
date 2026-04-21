@@ -1,0 +1,51 @@
+{
+  "name": "spec-bus-map-api",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write src",
+    "import-feed": "tsx src/scripts/import-feed.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^9",
+    "@fastify/rate-limit": "^9",
+    "@fastify/static": "^7",
+    "@types/adm-zip": "^0.5.8",
+    "@types/pg": "^8",
+    "adm-zip": "^0.5.17",
+    "bullmq": "^5",
+    "csv-parse": "^5",
+    "dotenv": "^16",
+    "drizzle-orm": "^0.31",
+    "fastify": "^4",
+    "fastify-plugin": "^4",
+    "gtfs": "^4",
+    "ioredis": "^5",
+    "pg": "^8"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/supertest": "^6",
+    "@typescript-eslint/eslint-plugin": "^7",
+    "@typescript-eslint/parser": "^7",
+    "@vitest/coverage-v8": "^1",
+    "drizzle-kit": "^0.22",
+    "eslint": "^8",
+    "prettier": "^3",
+    "supertest": "^7",
+    "tsx": "^4",
+    "typescript": "^5",
+    "vitest": "^1"
+  }
+}
