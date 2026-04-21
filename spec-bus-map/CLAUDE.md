@@ -1,10 +1,12 @@
 # spec-bus-map Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-04-15
+Auto-generated from all feature plans. Last updated: 2026-04-21
 
 ## Active Technologies
 - Shell / Homebrew formulae + `postgresql@16`, `postgis`, `redis`, `tippecanoe` (all via Homebrew) (001-gtfs-bus-map)
 - PostgreSQL 16 + PostGIS 3 (local service, port 5432), Redis 7 (local service, port 6379) (001-gtfs-bus-map)
+- TypeScript 5 / Node.js 22 LTS (existing toolchain). + Fastify 4, Drizzle ORM 0.31, `node-gtfs` 4, (002-compact-gtfs-storage)
+- PostgreSQL 17 + PostGIS 3. New schema version alongside (002-compact-gtfs-storage)
 
 - **Backend**: TypeScript 5 / Node.js 22 LTS — Fastify 4, Drizzle ORM, node-gtfs, BullMQ, tippecanoe
 - **Frontend**: TypeScript 5 / browser — React 18, Vite 5, MapLibre GL JS, Deck.gl, TanStack Query, Zustand, MSW v2
@@ -48,10 +50,10 @@ VITE_MOCK_API=true pnpm dev
 TypeScript 5 strict mode in both repos. ESLint (typescript-eslint) + Prettier enforced.
 
 ## Recent Changes
+- 002-compact-gtfs-storage: Added TypeScript 5 / Node.js 22 LTS (existing toolchain). + Fastify 4, Drizzle ORM 0.31, `node-gtfs` 4,
 - 001-gtfs-bus-map: Added Shell / Homebrew formulae + `postgresql@16`, `postgis`, `redis`, `tippecanoe` (all via Homebrew)
 
 - main: Added MSW v2 mock data layer (Phase MK) — enables frontend dev without backend infra
-- main: Bootstrapped spec-bus-map-api (Fastify + Drizzle schema + BullMQ queues + lib helpers)
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->
