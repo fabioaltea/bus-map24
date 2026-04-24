@@ -3,13 +3,22 @@ import cors from '@fastify/cors'
 import rateLimit from '@fastify/rate-limit'
 import staticFiles from '@fastify/static'
 import path from 'node:path'
+import { Redis } from 'ioredis'
+import { db } from './db/client.js'
+import { sql } from 'drizzle-orm'
 
 export async function createApp(): Promise<FastifyInstance> {
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL ?? 'info' },
   })
 
-  await app.register(cors, { origin: true })
+  const corsOriginEnv = process.env.CORS_ORIGIN
+  await app.register(cors, {
+    origin:
+      corsOriginEnv === '*' || !corsOriginEnv
+        ? true
+        : corsOriginEnv.split(',').map((s) => s.trim()),
+  })
   await app.register(rateLimit, {
     max: 100,
     timeWindow: '1 minute',
@@ -58,6 +67,32 @@ export async function createApp(): Promise<FastifyInstance> {
   await app.register(departuresRoutes, { prefix: '/api' })
   await app.register(feedsRoutes, { prefix: '/api' })
   await app.register(tripsRoutes, { prefix: '/api' })
+
+  app.get('/healthz', async (_req, reply) => {
+    let dbStatus: 'ok' | 'error' = 'ok'
+    let redisStatus: 'ok' | 'error' = 'ok'
+
+    try {
+      await db.execute(sql`SELECT 1`)
+    } catch {
+      dbStatus = 'error'
+    }
+
+    try {
+      const redis = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379', {
+        maxRetriesPerRequest: 1,
+        connectTimeout: 3000,
+        lazyConnect: true,
+      })
+      await redis.ping()
+      await redis.quit()
+    } catch {
+      redisStatus = 'error'
+    }
+
+    const status = dbStatus === 'ok' && redisStatus === 'ok' ? 'ok' : 'error'
+    reply.status(status === 'ok' ? 200 : 503).send({ status, db: dbStatus, redis: redisStatus })
+  })
 
   return app
 }
