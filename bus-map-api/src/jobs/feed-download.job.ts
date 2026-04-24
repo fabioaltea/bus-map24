@@ -24,7 +24,7 @@ const CURRENT_PIPELINE_VERSION = 2
 const REQUIRED_FILES = ['agency.txt', 'routes.txt', 'stops.txt', 'trips.txt', 'stop_times.txt']
 
 export async function runFeedDownload(data: FeedDownloadJobData): Promise<void> {
-  const { feedId, mobilityDbId, downloadUrl } = data
+  const { feedId, mobilityDbId, downloadUrl, forceRefresh = false } = data
 
   await db
     .update(feedCatalogEntries)
@@ -51,6 +51,7 @@ export async function runFeedDownload(data: FeedDownloadJobData): Promise<void> 
       .limit(1)
 
     if (
+      !forceRefresh &&
       entry?.lastImportedSha256 === hashSha256 &&
       entry?.pipelineVersion === CURRENT_PIPELINE_VERSION
     ) {

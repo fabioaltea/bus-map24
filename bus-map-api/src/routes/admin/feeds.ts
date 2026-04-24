@@ -278,6 +278,7 @@ const feedsRoutes: FastifyPluginAsync = async (app) => {
       feedId: feed.id,
       mobilityDbId: feed.mobilityDbId,
       downloadUrl: feed.downloadUrl,
+      forceRefresh: true,
     })
 
     return reply.status(202).send({ feedId: feed.id, status: 'queued' })

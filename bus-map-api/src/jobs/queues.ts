@@ -62,6 +62,7 @@ export interface FeedDownloadJobData {
   feedId: string
   mobilityDbId: string
   downloadUrl: string
+  forceRefresh?: boolean
 }
 
 export interface TileGenJobData {
