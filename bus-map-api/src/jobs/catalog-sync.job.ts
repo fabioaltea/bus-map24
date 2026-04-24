@@ -84,7 +84,7 @@ async function fetchAllFeeds(): Promise<MdbFeed[]> {
   const all: MdbFeed[] = []
   let offset = 0
 
-  while (true) {
+  for (;;) {
     const page = await fetchPage(offset, token)
     all.push(...page)
     if (page.length < PAGE_SIZE) break

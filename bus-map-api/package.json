@@ -15,12 +15,16 @@
     "db:migrate": "drizzle-kit migrate",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write src",
-    "import-feed": "tsx src/scripts/import-feed.ts"
+    "import-feed": "tsx src/scripts/import-feed.ts",
+    "bench:footprint": "tsx src/scripts/bench-footprint.ts",
+    "bench:self-compare": "tsx src/scripts/bench-footprint.ts --self-compare",
+    "bench:latency": "tsx src/scripts/bench-latency.ts"
   },
   "dependencies": {
     "@fastify/cors": "^9",
     "@fastify/rate-limit": "^9",
     "@fastify/static": "^7",
+    "@mapbox/polyline": "^1.2.1",
     "@types/adm-zip": "^0.5.8",
     "@types/pg": "^8",
     "adm-zip": "^0.5.17",
@@ -32,9 +36,12 @@
     "fastify-plugin": "^4",
     "gtfs": "^4",
     "ioredis": "^5",
-    "pg": "^8"
+    "pg": "^8",
+    "simplify-js": "^1.2.4",
+    "xxhash-wasm": "^1.1.0"
   },
   "devDependencies": {
+    "@types/mapbox__polyline": "^1.0.5",
     "@types/node": "^22",
     "@types/supertest": "^6",
     "@typescript-eslint/eslint-plugin": "^7",

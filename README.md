@@ -411,6 +411,53 @@ Canonical verification flow also captured in
 
 ---
 
+## Compact GTFS Storage (feature 002)
+
+The default pipeline now stores GTFS data in a compact schema alongside the
+legacy tables, reducing PostgreSQL footprint ≥ 70 % on typical bus feeds.
+Four techniques are applied at import time:
+
+| Technique | Saving |
+|-----------|--------|
+| Stop-time **pattern deduplication** — identical stop sequences stored once | ~60 % of stop_times rows |
+| **Frequency collapse** — runs of ≥ 4 evenly-spaced trips collapsed to a headway | varies |
+| **Integer ID surrogates** — GTFS string IDs replaced by `feed_<kind>` lookup tables | ~40 % of index size |
+| **Shape compression** — Douglas-Peucker @ 5 m + polyline6 encoding + geometry hash dedup | ~55 % of shape bytes |
+
+New compact tables: `stops_compact`, `shapes_compact`, `agencies_compact`,
+`routes_compact`, `stop_patterns`, `pattern_stops`, `trips_compact`,
+`frequencies_compact`, `calendar_compact`, `calendar_dates_compact`, and six
+`feed_<kind>` id-mapping tables.
+
+All public API endpoints are backwards-compatible: the read services
+transparently query compact tables when `pipeline_version = 2` data is present
+and fall back to legacy tables otherwise.
+
+Legacy tables (`stops`, `routes`, `trips`, `stop_times`, `shapes`, `calendar`,
+`calendar_dates`) are preserved until every feed has been re-ingested under the
+compact pipeline, at which point `0003_drop_legacy_gtfs.sql` can be applied
+manually.
+
+### Benchmarking
+
+```bash
+cd bus-map-api
+
+# Measure footprint of all tables and emit JSON
+pnpm bench:footprint --output bench/compact-tld-576.json
+
+# Compare two snapshots: baseline (legacy) vs candidate (compact)
+pnpm bench:footprint --compare \
+  --baseline  bench/legacy-tld-576.json \
+  --candidate bench/compact-tld-576.json
+# Exits 1 if total reduction < 70 %
+```
+
+Full end-to-end verification steps:
+`spec-bus-map/specs/002-compact-gtfs-storage/quickstart.md`
+
+---
+
 ## spec-kit focus
 
 The primary goal is validating spec-kit on a non-trivial, real-world domain.

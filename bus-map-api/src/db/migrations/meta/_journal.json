@@ -15,6 +15,13 @@
       "when": 1776627494427,
       "tag": "0001_careful_cannonball",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776886517986,
+      "tag": "0002_compact_storage",
+      "breakpoints": true
     }
   ]
 }

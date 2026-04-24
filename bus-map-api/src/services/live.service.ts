@@ -27,141 +27,178 @@ export async function getLiveBuses(
   date: string,
   nowTime: string,
 ): Promise<LiveBus[]> {
+  // nowTime expected as "HH:MM:SS", convert to seconds-from-midnight
+  const [hh, mm, ss] = nowTime.split(':').map(Number)
+  const nowSec = hh * 3600 + mm * 60 + (ss ?? 0)
+
   const rows = await db.execute<{
-    trip_id: string
+    trip_external_id: string
     headsign: string | null
-    from_stop: string
-    to_stop: string
-    seg_fraction: string
-    position_wkt: string
-    bearing: string
-    trip_start_sec: string
-    trip_end_sec: string
-    next_stop_arrival_sec: string
+    from_stop_name: string
+    to_stop_name: string
+    dep_sec: number
+    arr_sec: number
+    trip_start_sec: number
+    trip_end_sec: number
+    from_lat_e6: number
+    from_lon_e6: number
+    to_lat_e6: number
+    to_lon_e6: number
   }>(sql`
-    WITH active_trips AS (
-      SELECT t.id AS trip_id, t.shape_id, t.feed_id, t.service_id, t.headsign
-      FROM trips t
-      WHERE t.route_id = ${routeId}
+    WITH active_services AS (
+      SELECT cc.service_internal_id, cc.feed_id
+      FROM calendar_compact cc
+      JOIN feed_catalog_entries fce ON fce.id = cc.feed_id
+      JOIN feed_routes fr ON fr.feed_id = fce.id AND fr.external_id = ${routeId}
+      WHERE cc.start_date <= ${date}::date AND cc.end_date >= ${date}::date
         AND (
-          EXISTS (
-            SELECT 1 FROM calendars c
-            WHERE c.feed_id = t.feed_id AND c.service_id = t.service_id
-              AND c.start_date <= ${date}::date AND c.end_date >= ${date}::date
-              AND (
-                (EXTRACT(DOW FROM ${date}::date) = 0 AND c.sunday)
-                OR (EXTRACT(DOW FROM ${date}::date) = 1 AND c.monday)
-                OR (EXTRACT(DOW FROM ${date}::date) = 2 AND c.tuesday)
-                OR (EXTRACT(DOW FROM ${date}::date) = 3 AND c.wednesday)
-                OR (EXTRACT(DOW FROM ${date}::date) = 4 AND c.thursday)
-                OR (EXTRACT(DOW FROM ${date}::date) = 5 AND c.friday)
-                OR (EXTRACT(DOW FROM ${date}::date) = 6 AND c.saturday)
-              )
-              AND NOT EXISTS (
-                SELECT 1 FROM calendar_dates cd
-                WHERE cd.feed_id = t.feed_id AND cd.service_id = t.service_id
-                  AND cd.date = ${date}::date AND cd.exception_type = 2
-              )
-          )
-          OR EXISTS (
-            SELECT 1 FROM calendar_dates cd
-            WHERE cd.feed_id = t.feed_id AND cd.service_id = t.service_id
-              AND cd.date = ${date}::date AND cd.exception_type = 1
-          )
+          (EXTRACT(DOW FROM ${date}::date)::integer = 0 AND cc.sunday)
+          OR (EXTRACT(DOW FROM ${date}::date)::integer = 1 AND cc.monday)
+          OR (EXTRACT(DOW FROM ${date}::date)::integer = 2 AND cc.tuesday)
+          OR (EXTRACT(DOW FROM ${date}::date)::integer = 3 AND cc.wednesday)
+          OR (EXTRACT(DOW FROM ${date}::date)::integer = 4 AND cc.thursday)
+          OR (EXTRACT(DOW FROM ${date}::date)::integer = 5 AND cc.friday)
+          OR (EXTRACT(DOW FROM ${date}::date)::integer = 6 AND cc.saturday)
         )
+        AND NOT EXISTS (
+          SELECT 1 FROM calendar_dates_compact cdc
+          WHERE cdc.feed_id = cc.feed_id
+            AND cdc.service_internal_id = cc.service_internal_id
+            AND cdc.date = ${date}::date AND cdc.exception_type = 2
+        )
+      UNION
+      SELECT cdc2.service_internal_id, cdc2.feed_id
+      FROM calendar_dates_compact cdc2
+      JOIN feed_catalog_entries fce2 ON fce2.id = cdc2.feed_id
+      JOIN feed_routes fr2 ON fr2.feed_id = fce2.id AND fr2.external_id = ${routeId}
+      WHERE cdc2.date = ${date}::date AND cdc2.exception_type = 1
     ),
-    trip_bounds AS (
-      SELECT
-        at.trip_id,
-        at.shape_id,
-        at.headsign,
-        MIN(st.departure_time) AS first_dep,
-        MAX(st.arrival_time)   AS last_arr
-      FROM active_trips at
-      JOIN stop_times st ON st.trip_id = at.trip_id
-      GROUP BY at.trip_id, at.shape_id, at.headsign
-      HAVING MIN(st.departure_time) <= ${nowTime}::interval
-         AND MAX(st.arrival_time)   >= ${nowTime}::interval
+    active_trips AS (
+      SELECT tc.internal_id AS trip_internal_id, tc.pattern_id,
+             tc.start_time_sec, tc.headsign, tc.feed_id,
+             ft.external_id AS trip_external_id,
+             (tc.start_time_sec + sp.duration_sec) AS end_sec
+      FROM feed_routes fr
+      JOIN routes_compact rc ON rc.feed_id = fr.feed_id AND rc.internal_id = fr.internal_id
+      JOIN trips_compact tc ON tc.feed_id = rc.feed_id AND tc.route_internal_id = rc.internal_id
+      JOIN stop_patterns sp ON sp.pattern_id = tc.pattern_id
+      JOIN feed_trips ft ON ft.feed_id = tc.feed_id AND ft.internal_id = tc.internal_id
+      JOIN active_services asvc
+        ON asvc.feed_id = tc.feed_id AND asvc.service_internal_id = tc.service_internal_id
+      WHERE fr.external_id = ${routeId}
+        AND tc.start_time_sec <= ${nowSec}
+        AND (tc.start_time_sec + sp.duration_sec) >= ${nowSec}
     ),
     current_segments AS (
-      SELECT DISTINCT ON (tb.trip_id)
-        tb.trip_id,
-        tb.shape_id,
-        tb.headsign,
-        tb.first_dep,
-        tb.last_arr,
-        st1.stop_id AS from_stop_id,
-        st2.stop_id AS to_stop_id,
-        st1.departure_time AS dep_time,
-        st2.arrival_time   AS arr_time
-      FROM trip_bounds tb
-      JOIN stop_times st1 ON st1.trip_id = tb.trip_id
-        AND st1.departure_time <= ${nowTime}::interval
-      JOIN stop_times st2 ON st2.trip_id = tb.trip_id
-        AND st2.arrival_time   >  ${nowTime}::interval
-        AND st2.stop_sequence  >  st1.stop_sequence
-      ORDER BY tb.trip_id, st1.stop_sequence DESC, st2.stop_sequence ASC
+      SELECT DISTINCT ON (at.trip_internal_id)
+        at.trip_external_id, at.headsign, at.start_time_sec, at.end_sec,
+        ps1.stop_internal_id AS from_stop_internal,
+        ps2.stop_internal_id AS to_stop_internal,
+        (at.start_time_sec + ps1.offset_departure_sec) AS dep_sec,
+        (at.start_time_sec + ps2.offset_arrival_sec)   AS arr_sec
+      FROM active_trips at
+      JOIN pattern_stops ps1 ON ps1.pattern_id = at.pattern_id
+        AND (at.start_time_sec + ps1.offset_departure_sec) <= ${nowSec}
+      JOIN pattern_stops ps2 ON ps2.pattern_id = at.pattern_id
+        AND (at.start_time_sec + ps2.offset_arrival_sec) > ${nowSec}
+        AND ps2.seq > ps1.seq
+      ORDER BY at.trip_internal_id, ps1.seq DESC, ps2.seq ASC
     )
     SELECT
-      cs.trip_id,
+      cs.trip_external_id,
       cs.headsign,
-      s1.name AS from_stop,
-      s2.name AS to_stop,
-      LEAST(GREATEST(
-        EXTRACT(EPOCH FROM (${nowTime}::interval - cs.dep_time)) /
-        NULLIF(EXTRACT(EPOCH FROM (cs.arr_time - cs.dep_time)), 0),
-      0), 1) AS seg_fraction,
-      CASE
-        WHEN sh.geom IS NOT NULL THEN
-          ST_AsText(ST_LineInterpolatePoint(
-            sh.geom,
-            LEAST(GREATEST(
-              ST_LineLocatePoint(sh.geom, s1.location) +
-              LEAST(GREATEST(
-                EXTRACT(EPOCH FROM (${nowTime}::interval - cs.dep_time)) /
-                NULLIF(EXTRACT(EPOCH FROM (cs.arr_time - cs.dep_time)), 0),
-              0), 1) *
-              (ST_LineLocatePoint(sh.geom, s2.location) -
-               ST_LineLocatePoint(sh.geom, s1.location)),
-            0), 1)
-          ))
-        ELSE
-          ST_AsText(ST_LineInterpolatePoint(
-            ST_MakeLine(s1.location, s2.location),
-            LEAST(GREATEST(
-              EXTRACT(EPOCH FROM (${nowTime}::interval - cs.dep_time)) /
-              NULLIF(EXTRACT(EPOCH FROM (cs.arr_time - cs.dep_time)), 0),
-            0), 1)
-          ))
-      END AS position_wkt,
-      DEGREES(ST_Azimuth(s1.location, s2.location)) AS bearing,
-      EXTRACT(EPOCH FROM cs.first_dep)::integer AS trip_start_sec,
-      EXTRACT(EPOCH FROM cs.last_arr)::integer   AS trip_end_sec,
-      EXTRACT(EPOCH FROM cs.arr_time)::integer   AS next_stop_arrival_sec
+      sc1.name  AS from_stop_name,
+      sc2.name  AS to_stop_name,
+      cs.dep_sec,
+      cs.arr_sec,
+      cs.start_time_sec AS trip_start_sec,
+      cs.end_sec        AS trip_end_sec,
+      sc1.lat_e6 AS from_lat_e6,
+      sc1.lon_e6 AS from_lon_e6,
+      sc2.lat_e6 AS to_lat_e6,
+      sc2.lon_e6 AS to_lon_e6
     FROM current_segments cs
-    JOIN stops s1 ON s1.id = cs.from_stop_id
-    JOIN stops s2 ON s2.id = cs.to_stop_id
-    LEFT JOIN shapes sh ON sh.id = cs.shape_id
-    WHERE cs.from_stop_id IS NOT NULL
+    JOIN stops_compact sc1
+      ON sc1.feed_id = (SELECT feed_id FROM feed_routes WHERE external_id = ${routeId} LIMIT 1)
+      AND sc1.internal_id = cs.from_stop_internal
+    JOIN stops_compact sc2
+      ON sc2.feed_id = sc1.feed_id
+      AND sc2.internal_id = cs.to_stop_internal
   `)
 
-  return rows.rows
-    .filter((r) => r.position_wkt)
-    .map((r) => ({
-      tripId: r.trip_id,
+  return rows.rows.map((r) => {
+    const depSec  = Number(r.dep_sec)
+    const arrSec  = Number(r.arr_sec)
+    const elapsed = nowSec - depSec
+    const segLen  = arrSec - depSec
+    const frac    = segLen > 0 ? Math.min(Math.max(elapsed / segLen, 0), 1) : 0
+
+    const fromLat = Number(r.from_lat_e6) / 1e6
+    const fromLon = Number(r.from_lon_e6) / 1e6
+    const toLat   = Number(r.to_lat_e6)   / 1e6
+    const toLon   = Number(r.to_lon_e6)   / 1e6
+
+    const lat = fromLat + (toLat - fromLat) * frac
+    const lon = fromLon + (toLon - fromLon) * frac
+
+    const bearingRad = Math.atan2(toLon - fromLon, toLat - fromLat)
+    const bearing    = ((bearingRad * 180) / Math.PI + 360) % 360
+
+    return {
+      tripId: r.trip_external_id,
       headsign: r.headsign ?? null,
-      fromStop: r.from_stop,
-      toStop: r.to_stop,
-      bearing: parseFloat(r.bearing ?? '0'),
-      segFraction: parseFloat(r.seg_fraction ?? '0'),
-      positionWkt: r.position_wkt,
-      tripStartSec: parseInt(r.trip_start_sec ?? '0', 10),
-      tripEndSec: parseInt(r.trip_end_sec ?? '0', 10),
-      nextStopArrivalSec: parseInt(r.next_stop_arrival_sec ?? '0', 10),
-    }))
+      fromStop: r.from_stop_name,
+      toStop: r.to_stop_name,
+      bearing,
+      segFraction: frac,
+      positionWkt: `POINT(${lon} ${lat})`,
+      tripStartSec: Number(r.trip_start_sec),
+      tripEndSec: Number(r.trip_end_sec),
+      nextStopArrivalSec: Number(r.arr_sec),
+    }
+  })
 }
 
 export async function getTripTimeline(tripId: string): Promise<TripStop[]> {
+  // Compact path: look up external trip_id in feed_trips
+  const compactRows = await db.execute<{
+    stop_id: string
+    name: string
+    arrival_sec: number
+    departure_sec: number
+    stop_sequence: number
+  }>(sql`
+    SELECT
+      fs.external_id                                             AS stop_id,
+      sc.name,
+      (tc.start_time_sec + ps.offset_arrival_sec)::integer      AS arrival_sec,
+      (tc.start_time_sec + ps.offset_departure_sec)::integer    AS departure_sec,
+      ps.seq::integer                                           AS stop_sequence
+    FROM feed_trips ft
+    JOIN trips_compact tc
+      ON tc.feed_id = ft.feed_id AND tc.internal_id = ft.internal_id
+    JOIN pattern_stops ps ON ps.pattern_id = tc.pattern_id
+    JOIN feed_stops fs
+      ON fs.feed_id = ft.feed_id AND fs.internal_id = ps.stop_internal_id
+    JOIN stops_compact sc
+      ON sc.feed_id = ft.feed_id AND sc.internal_id = ps.stop_internal_id
+    JOIN feed_catalog_entries fce ON fce.id = ft.feed_id
+    WHERE ft.external_id = ${tripId}
+      AND fce.pipeline_version = 2
+    ORDER BY ps.seq
+  `)
+
+  if (compactRows.rows.length > 0) {
+    return compactRows.rows.map((r) => ({
+      stopId: r.stop_id,
+      name: r.name,
+      arrivalSec: Number(r.arrival_sec),
+      departureSec: Number(r.departure_sec),
+      sequence: Number(r.stop_sequence),
+    }))
+  }
+
+  // Legacy fallback
   const rows = await db.execute<{
     stop_id: string
     name: string

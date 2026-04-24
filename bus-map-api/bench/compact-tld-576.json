@@ -1,0 +1,111 @@
+{
+  "mobilityId": "--output",
+  "capturedAt": "2026-04-22T19:56:45.370Z",
+  "tables": {
+    "agencies": {
+      "totalBytes": 90112,
+      "indexBytes": 40960
+    },
+    "agencies_compact": {
+      "totalBytes": 106496,
+      "indexBytes": 24576
+    },
+    "calendar_compact": {
+      "totalBytes": 24576,
+      "indexBytes": 16384
+    },
+    "calendar_dates": {
+      "totalBytes": 16973824,
+      "indexBytes": 13942784
+    },
+    "calendar_dates_compact": {
+      "totalBytes": 434176,
+      "indexBytes": 212992
+    },
+    "calendars": {
+      "totalBytes": 172032,
+      "indexBytes": 122880
+    },
+    "feed_agencies": {
+      "totalBytes": 65536,
+      "indexBytes": 49152
+    },
+    "feed_catalog_entries": {
+      "totalBytes": 81920,
+      "indexBytes": 32768
+    },
+    "feed_routes": {
+      "totalBytes": 65536,
+      "indexBytes": 49152
+    },
+    "feed_services": {
+      "totalBytes": 65536,
+      "indexBytes": 49152
+    },
+    "feed_shapes": {
+      "totalBytes": 98304,
+      "indexBytes": 49152
+    },
+    "feed_stops": {
+      "totalBytes": 327680,
+      "indexBytes": 212992
+    },
+    "feed_trips": {
+      "totalBytes": 1851392,
+      "indexBytes": 1261568
+    },
+    "frequencies_compact": {
+      "totalBytes": 106496,
+      "indexBytes": 40960
+    },
+    "pattern_stops": {
+      "totalBytes": 9469952,
+      "indexBytes": 5644288
+    },
+    "routes": {
+      "totalBytes": 23642112,
+      "indexBytes": 204800
+    },
+    "routes_compact": {
+      "totalBytes": 49152,
+      "indexBytes": 32768
+    },
+    "shapes": {
+      "totalBytes": 25772032,
+      "indexBytes": 974848
+    },
+    "shapes_compact": {
+      "totalBytes": 131072,
+      "indexBytes": 40960
+    },
+    "spatial_ref_sys": {
+      "totalBytes": 7315456,
+      "indexBytes": 212992
+    },
+    "stop_patterns": {
+      "totalBytes": 335872,
+      "indexBytes": 172032
+    },
+    "stop_times": {
+      "totalBytes": 544768000,
+      "indexBytes": 473128960
+    },
+    "stops": {
+      "totalBytes": 3547136,
+      "indexBytes": 2613248
+    },
+    "stops_compact": {
+      "totalBytes": 270336,
+      "indexBytes": 106496
+    },
+    "trips": {
+      "totalBytes": 17850368,
+      "indexBytes": 15613952
+    },
+    "trips_compact": {
+      "totalBytes": 1490944,
+      "indexBytes": 720896
+    }
+  },
+  "totalBytes": 655106048
+}

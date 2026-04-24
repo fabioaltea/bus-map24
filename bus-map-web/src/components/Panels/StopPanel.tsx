@@ -27,10 +27,10 @@ export default function StopPanel({ isClosing, onClose }: Props) {
       style={{
         ...panel,
         position: 'absolute',
-        bottom: 16,
+        bottom: 96,
         left: 16,
         width: 300,
-        maxHeight: 'calc(100vh - 32px)',
+        maxHeight: 'calc(50vh - 112px)',
         zIndex: 20,
         opacity: isClosing ? 0 : undefined,
         transform: isClosing ? 'translateY(16px)' : undefined,

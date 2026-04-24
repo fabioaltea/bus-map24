@@ -73,10 +73,10 @@ export default function BusTripPanel({ schedule, routeShortName, routeColor, isC
       style={{
         ...panel,
         position: 'absolute',
-        bottom: 16,
+        bottom: 96,
         left: 16,
         width: 340,
-        maxHeight: 'calc(60vh - 32px)',
+        maxHeight: 'calc(50vh - 112px)',
         zIndex: 20,
         opacity: isClosing ? 0 : undefined,
         transform: isClosing ? 'translateY(16px)' : undefined,

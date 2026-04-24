@@ -10,10 +10,13 @@ import {
   timestamp,
   date,
   bigserial,
+  bigint,
+  real,
   doublePrecision,
   interval,
   uniqueIndex,
   index,
+  primaryKey,
 } from 'drizzle-orm/pg-core'
 import { customType } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
@@ -41,6 +44,8 @@ export const feedCatalogEntries = pgTable('feed_catalog_entries', {
   downloadUrl: text('download_url').notNull(),
   boundingBox: geometry('bounding_box', { type: 'Polygon' }),
   hashSha256: char('hash_sha256', { length: 64 }),
+  lastImportedSha256: char('last_imported_sha256', { length: 64 }),
+  pipelineVersion: smallint('pipeline_version').notNull().default(2),
   lastCheckedAt: timestamp('last_checked_at', { withTimezone: true }),
   lastImportedAt: timestamp('last_imported_at', { withTimezone: true }),
   importStatus: varchar('import_status', { length: 32 }).notNull().default('pending'),
@@ -251,5 +256,244 @@ export const calendarDates = pgTable(
       t.serviceId,
       t.date,
     ),
+  }),
+)
+
+// ── Compact Storage Tables (002-compact-gtfs-storage) ───────────────────────
+
+// ── Per-feed id-map tables ───────────────────────────────────────────────────
+
+function feedIdMapTable(tableName: string) {
+  return pgTable(
+    tableName,
+    {
+      feedId: uuid('feed_id')
+        .notNull()
+        .references(() => feedCatalogEntries.id, { onDelete: 'cascade' }),
+      externalId: text('external_id').notNull(),
+      internalId: integer('internal_id').notNull(),
+    },
+    (t) => ({
+      pk: primaryKey({ columns: [t.feedId, t.externalId] }),
+      uniqueInternal: uniqueIndex(`${tableName}_internal_uniq`).on(t.feedId, t.internalId),
+      internalIdx: index(`idx_${tableName.replace('feed_', '')}_internal`).on(t.feedId, t.internalId),
+    }),
+  )
+}
+
+export const feedStops = feedIdMapTable('feed_stops')
+export const feedRoutes = feedIdMapTable('feed_routes')
+export const feedTrips = feedIdMapTable('feed_trips')
+export const feedServices = feedIdMapTable('feed_services')
+export const feedShapes = feedIdMapTable('feed_shapes')
+export const feedAgencies = feedIdMapTable('feed_agencies')
+
+// ── stops_compact ────────────────────────────────────────────────────────────
+
+export const stopsCompact = pgTable(
+  'stops_compact',
+  {
+    feedId: uuid('feed_id')
+      .notNull()
+      .references(() => feedCatalogEntries.id, { onDelete: 'cascade' }),
+    internalId: integer('internal_id').notNull(),
+    name: text('name').notNull(),
+    latE6: integer('lat_e6').notNull(),
+    lonE6: integer('lon_e6').notNull(),
+    parentInternalId: integer('parent_internal_id'),
+    // geom is GENERATED ALWAYS AS STORED — defined in hand-polished migration SQL
+    geom: geometry('geom', { type: 'Point' }),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.feedId, t.internalId] }),
+    geomIdx: index('stops_compact_geom_idx').using('gist', t.geom),
+  }),
+)
+
+// ── shapes_compact ───────────────────────────────────────────────────────────
+
+export const shapesCompact = pgTable(
+  'shapes_compact',
+  {
+    feedId: uuid('feed_id')
+      .notNull()
+      .references(() => feedCatalogEntries.id, { onDelete: 'cascade' }),
+    internalId: integer('internal_id').notNull(),
+    polyline6: text('polyline6').notNull(),
+    simplifyEpsM: real('simplify_eps_m').notNull().default(5.0),
+    shapeHash: bigint('shape_hash', { mode: 'bigint' }).notNull(),
+    bbox: geometry('bbox', { type: 'Polygon' }),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.feedId, t.internalId] }),
+    uniqueHash: uniqueIndex('shapes_compact_hash_uniq').on(t.feedId, t.shapeHash),
+    bboxIdx: index('shapes_compact_bbox_idx').using('gist', t.bbox),
+  }),
+)
+
+// ── agencies_compact ─────────────────────────────────────────────────────────
+
+export const agenciesCompact = pgTable(
+  'agencies_compact',
+  {
+    feedId: uuid('feed_id')
+      .notNull()
+      .references(() => feedCatalogEntries.id, { onDelete: 'cascade' }),
+    internalId: integer('internal_id').notNull(),
+    name: text('name').notNull(),
+    url: text('url'),
+    tz: text('tz').notNull(),
+    coverage: geometry('coverage', { type: 'MultiPolygon' }),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.feedId, t.internalId] }),
+    coverageIdx: index('agencies_compact_coverage_idx').using('gist', t.coverage),
+  }),
+)
+
+// ── routes_compact ───────────────────────────────────────────────────────────
+
+export const routesCompact = pgTable(
+  'routes_compact',
+  {
+    feedId: uuid('feed_id')
+      .notNull()
+      .references(() => feedCatalogEntries.id, { onDelete: 'cascade' }),
+    internalId: integer('internal_id').notNull(),
+    agencyInternalId: integer('agency_internal_id').notNull(),
+    shortName: text('short_name'),
+    longName: text('long_name'),
+    routeType: smallint('route_type').notNull(),
+    color: char('color', { length: 6 }),
+    textColor: char('text_color', { length: 6 }),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.feedId, t.internalId] }),
+    agencyIdx: index('routes_compact_agency_idx').on(t.feedId, t.agencyInternalId),
+  }),
+)
+
+// ── stop_patterns ────────────────────────────────────────────────────────────
+
+export const stopPatterns = pgTable(
+  'stop_patterns',
+  {
+    patternId: bigserial('pattern_id', { mode: 'bigint' }).primaryKey(),
+    feedId: uuid('feed_id')
+      .notNull()
+      .references(() => feedCatalogEntries.id, { onDelete: 'cascade' }),
+    stopCount: smallint('stop_count').notNull(),
+    durationSec: integer('duration_sec').notNull(),
+    patternHash: bigint('pattern_hash', { mode: 'bigint' }).notNull(),
+  },
+  (t) => ({
+    uniqueHash: uniqueIndex('stop_patterns_hash_uniq').on(t.feedId, t.patternHash),
+  }),
+)
+
+// ── pattern_stops ────────────────────────────────────────────────────────────
+
+export const patternStops = pgTable(
+  'pattern_stops',
+  {
+    patternId: bigint('pattern_id', { mode: 'bigint' })
+      .notNull()
+      .references(() => stopPatterns.patternId, { onDelete: 'cascade' }),
+    seq: smallint('seq').notNull(),
+    stopInternalId: integer('stop_internal_id').notNull(),
+    offsetArrivalSec: integer('offset_arrival_sec').notNull(),
+    offsetDepartureSec: integer('offset_departure_sec').notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.patternId, t.seq] }),
+    stopPatternIdx: index('pattern_stops_stop_idx').on(t.stopInternalId, t.patternId),
+  }),
+)
+
+// ── trips_compact ────────────────────────────────────────────────────────────
+
+export const tripsCompact = pgTable(
+  'trips_compact',
+  {
+    feedId: uuid('feed_id')
+      .notNull()
+      .references(() => feedCatalogEntries.id, { onDelete: 'cascade' }),
+    internalId: integer('internal_id').notNull(),
+    routeInternalId: integer('route_internal_id').notNull(),
+    serviceInternalId: integer('service_internal_id').notNull(),
+    patternId: bigint('pattern_id', { mode: 'bigint' }).notNull(),
+    startTimeSec: integer('start_time_sec').notNull(),
+    shapeInternalId: integer('shape_internal_id'),
+    directionId: smallint('direction_id'),
+    headsign: text('headsign'),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.feedId, t.internalId] }),
+    patternServiceIdx: index('trips_compact_pattern_service_idx').on(
+      t.patternId,
+      t.serviceInternalId,
+      t.startTimeSec,
+    ),
+    routeIdx: index('trips_compact_route_idx').on(t.feedId, t.routeInternalId),
+  }),
+)
+
+// ── frequencies_compact ──────────────────────────────────────────────────────
+
+export const frequenciesCompact = pgTable(
+  'frequencies_compact',
+  {
+    feedId: uuid('feed_id')
+      .notNull()
+      .references(() => feedCatalogEntries.id, { onDelete: 'cascade' }),
+    tripInternalId: integer('trip_internal_id').notNull(),
+    startTimeSec: integer('start_time_sec').notNull(),
+    endTimeSec: integer('end_time_sec').notNull(),
+    headwaySec: integer('headway_sec').notNull(),
+    exactTimes: boolean('exact_times').notNull().default(false),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.feedId, t.tripInternalId, t.startTimeSec] }),
+  }),
+)
+
+// ── calendar_compact ─────────────────────────────────────────────────────────
+
+export const calendarCompact = pgTable(
+  'calendar_compact',
+  {
+    feedId: uuid('feed_id')
+      .notNull()
+      .references(() => feedCatalogEntries.id, { onDelete: 'cascade' }),
+    serviceInternalId: integer('service_internal_id').notNull(),
+    monday: boolean('monday').notNull(),
+    tuesday: boolean('tuesday').notNull(),
+    wednesday: boolean('wednesday').notNull(),
+    thursday: boolean('thursday').notNull(),
+    friday: boolean('friday').notNull(),
+    saturday: boolean('saturday').notNull(),
+    sunday: boolean('sunday').notNull(),
+    startDate: date('start_date').notNull(),
+    endDate: date('end_date').notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.feedId, t.serviceInternalId] }),
+  }),
+)
+
+// ── calendar_dates_compact ───────────────────────────────────────────────────
+
+export const calendarDatesCompact = pgTable(
+  'calendar_dates_compact',
+  {
+    feedId: uuid('feed_id')
+      .notNull()
+      .references(() => feedCatalogEntries.id, { onDelete: 'cascade' }),
+    serviceInternalId: integer('service_internal_id').notNull(),
+    date: date('date').notNull(),
+    exceptionType: smallint('exception_type').notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.feedId, t.serviceInternalId, t.date] }),
   }),
 )
