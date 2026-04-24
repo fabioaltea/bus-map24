@@ -9,10 +9,11 @@ export class AdminUnauthorizedError extends Error {
 
 export async function adminFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem('admin_token')
+  const hasBody = options.body !== undefined
   const res = await fetch(`${BASE}${path}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
