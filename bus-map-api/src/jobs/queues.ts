@@ -74,9 +74,5 @@ export interface TileGenJobData {
 // ── Graceful shutdown ────────────────────────────────────────────────────────
 
 export async function closeQueues(): Promise<void> {
-  await Promise.all([
-    catalogSyncQueue.close(),
-    feedDownloadQueue.close(),
-    tileGenQueue.close(),
-  ])
+  await Promise.all([catalogSyncQueue.close(), feedDownloadQueue.close(), tileGenQueue.close()])
 }

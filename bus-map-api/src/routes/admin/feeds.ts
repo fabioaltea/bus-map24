@@ -87,9 +87,7 @@ const feedsRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /feeds
   app.post<{
-    Body:
-      | { mobilityId: string }
-      | { url: string; provider: string; countryCode: string }
+    Body: { mobilityId: string } | { url: string; provider: string; countryCode: string }
   }>(
     '/feeds',
     {
@@ -199,7 +197,7 @@ const feedsRoutes: FastifyPluginAsync = async (app) => {
         status: 400,
         detail: 'Provide mobilityId OR url+provider+countryCode',
       })
-    },
+    }
   )
 
   // PATCH /feeds/:id
@@ -240,7 +238,7 @@ const feedsRoutes: FastifyPluginAsync = async (app) => {
       }
 
       return reply.send(await buildFeedItem(updated))
-    },
+    }
   )
 
   // POST /feeds/:id/refresh

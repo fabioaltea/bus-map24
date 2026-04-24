@@ -55,7 +55,9 @@ export async function runFeedDownload(data: FeedDownloadJobData): Promise<void> 
       entry?.lastImportedSha256 === hashSha256 &&
       entry?.pipelineVersion === CURRENT_PIPELINE_VERSION
     ) {
-      console.log(`[feed-download] ${mobilityDbId} — short-circuit: sha256 + pipeline_version match, no changes applied`)
+      console.log(
+        `[feed-download] ${mobilityDbId} — short-circuit: sha256 + pipeline_version match, no changes applied`
+      )
       await db
         .update(feedCatalogEntries)
         .set({ lastCheckedAt: new Date(), importStatus: 'ready' })
@@ -90,7 +92,9 @@ export async function runFeedDownload(data: FeedDownloadJobData): Promise<void> 
     const idMaps = await runIdMapStage(db, feedId, readFile)
 
     // Stage 2a-d: Parallel-safe stages (different tables)
-    console.log(`[feed-download] ${mobilityDbId} — stage: stops + shapes + calendar + agencies-routes`)
+    console.log(
+      `[feed-download] ${mobilityDbId} — stage: stops + shapes + calendar + agencies-routes`
+    )
     await Promise.all([
       runStopsStage(db, feedId, idMaps.stops, readFile),
       runShapesStage(db, feedId, idMaps.shapes, readFile),
@@ -106,7 +110,16 @@ export async function runFeedDownload(data: FeedDownloadJobData): Promise<void> 
 
     // Stage 4: Trips + frequencies (depends on patterns)
     console.log(`[feed-download] ${mobilityDbId} — stage: trips + frequencies`)
-    await runTripsStage(db, feedId, idMaps.trips, idMaps.routes, idMaps.services, idMaps.shapes, patternLookup, readFile)
+    await runTripsStage(
+      db,
+      feedId,
+      idMaps.trips,
+      idMaps.routes,
+      idMaps.services,
+      idMaps.shapes,
+      patternLookup,
+      readFile
+    )
 
     // ── Mark ready ─────────────────────────────────────────────────────────────
     await db
