@@ -14,10 +14,16 @@ Railway's managed Postgres addon does not include PostGIS. Use a custom Docker s
    ```
 4. **Add volume**: Volumes tab → Add → mount path `/var/lib/postgresql/data`
 5. **Copy internal hostname**: Settings tab → copy the internal URL, e.g. `postgres.railway.internal:5432`
-6. **Set `DATABASE_URL`** on the API and worker services:
+6. **Set `DATABASE_URL` and `REDIS_URL`** on both API and worker services:
    ```
    DATABASE_URL=postgresql://busmap:<password>@postgres.railway.internal:5432/busmapdb
+   REDIS_URL=redis://<your-redis-host>:6379
    ```
+
+7. **Worker service settings**:
+   - Start command: `node dist/worker.js`
+   - Keep the same `REDIS_URL` used by the API service
+   - If healthchecks are enabled, keep path `/healthz` (the worker process now serves it when `PORT` is set)
 
 ## Verify
 
