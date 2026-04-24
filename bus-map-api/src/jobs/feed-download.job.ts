@@ -57,7 +57,7 @@ export async function runFeedDownload(data: FeedDownloadJobData): Promise<void> 
       console.log(`[feed-download] ${mobilityDbId} — short-circuit: sha256 + pipeline_version match, no changes applied`)
       await db
         .update(feedCatalogEntries)
-        .set({ lastCheckedAt: new Date() })
+        .set({ lastCheckedAt: new Date(), importStatus: 'ready' })
         .where(eq(feedCatalogEntries.id, feedId))
       return
     }

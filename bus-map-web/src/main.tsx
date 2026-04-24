@@ -1,8 +1,12 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClient } from './lib/query-client.js'
 import App from './App.js'
+import LoginPage from './admin/LoginPage.js'
+import ProtectedRoute from './admin/ProtectedRoute.js'
+import AdminApp from './admin/AdminApp.js'
 import './index.css'
 
 async function prepare() {
@@ -19,7 +23,20 @@ prepare().then(() => {
   createRoot(root).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
-        <App />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/admin/login" element={<LoginPage />} />
+            <Route
+              path="/admin/*"
+              element={
+                <ProtectedRoute>
+                  <AdminApp />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/*" element={<App />} />
+          </Routes>
+        </BrowserRouter>
       </QueryClientProvider>
     </StrictMode>,
   )

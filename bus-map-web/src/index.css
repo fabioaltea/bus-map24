@@ -22,6 +22,21 @@ body,
   to { transform: rotate(360deg); }
 }
 
+/* Admin badge blink */
+@keyframes badge-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+.badge-blink {
+  animation: badge-blink 1.2s ease-in-out infinite;
+}
+
+/* Admin scrollable layout */
+.admin-scroll {
+  overflow-y: auto;
+  height: 100%;
+}
+
 /* Panel slide-up entrance */
 @keyframes panel-slide-up {
   from { opacity: 0; transform: translateY(20px); }

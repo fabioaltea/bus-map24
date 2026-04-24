@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify'
 import cors from '@fastify/cors'
+import jwt from '@fastify/jwt'
 import rateLimit from '@fastify/rate-limit'
 import staticFiles from '@fastify/static'
 import path from 'node:path'
@@ -9,6 +10,9 @@ import { db } from './db/client.js'
 import { sql } from 'drizzle-orm'
 
 export async function createApp(): Promise<FastifyInstance> {
+  if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET env var is required')
+  if (!process.env.ADMIN_PASSWORD) throw new Error('ADMIN_PASSWORD env var is required')
+
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL ?? 'info' },
   })
@@ -30,6 +34,7 @@ export async function createApp(): Promise<FastifyInstance> {
       detail: `Rate limit exceeded. Try again in ${Math.ceil(context.ttl / 1000)}s.`,
     }),
   })
+  await app.register(jwt, { secret: process.env.JWT_SECRET! })
 
   // Serve pre-generated PMTiles and GeoJSON from the tiles output directory
   const tilesDir = path.resolve(process.env.PMTILES_OUTPUT_DIR ?? path.join(process.cwd(), 'tiles'))
@@ -69,6 +74,15 @@ export async function createApp(): Promise<FastifyInstance> {
   await app.register(departuresRoutes, { prefix: '/api' })
   await app.register(feedsRoutes, { prefix: '/api' })
   await app.register(tripsRoutes, { prefix: '/api' })
+
+  // Admin route plugins
+  const { default: adminAuthRoutes } = await import('./routes/admin/auth.js')
+  const { default: adminFeedsRoutes } = await import('./routes/admin/feeds.js')
+  const { default: adminAgenciesRoutes } = await import('./routes/admin/agencies.js')
+
+  await app.register(adminAuthRoutes, { prefix: '/api/admin' })
+  await app.register(adminFeedsRoutes, { prefix: '/api/admin' })
+  await app.register(adminAgenciesRoutes, { prefix: '/api/admin' })
 
   app.get('/healthz', async (_req, reply) => {
     let dbStatus: 'ok' | 'error' = 'ok'
