@@ -225,6 +225,27 @@ export default function MapView() {
       {/* Base map */}
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
 
+      {/* Wordmark */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 16,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 20,
+          pointerEvents: 'none',
+          fontFamily: "'Inter Tight', Inter, system-ui, sans-serif",
+          fontWeight: 700,
+          fontSize: 22,
+          letterSpacing: '-0.035em',
+          lineHeight: 1,
+          userSelect: 'none',
+        }}
+      >
+        <span style={{ color: '#F5F6F7' }}>busmap</span>
+        <span style={{ color: '#52C87A' }}>24</span>
+      </div>
+
       {/* MapLibre-based data layers */}
       {mapReady && mapRef.current && (
         <>
