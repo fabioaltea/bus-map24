@@ -20,7 +20,7 @@ export default function RoutePanel() {
       style={{
         ...panel,
         position: 'absolute',
-        bottom: 96,
+        bottom:36,
         right: 16,
         width: 300,
         maxHeight: 'calc(50vh - 112px)',

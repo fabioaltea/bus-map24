@@ -27,7 +27,7 @@ export default function StopPanel({ isClosing, onClose }: Props) {
       style={{
         ...panel,
         position: 'absolute',
-        bottom: 96,
+        bottom: 36,
         left: 16,
         width: 300,
         maxHeight: 'calc(50vh - 112px)',
