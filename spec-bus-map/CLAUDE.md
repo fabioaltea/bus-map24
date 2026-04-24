@@ -52,9 +52,9 @@ VITE_MOCK_API=true pnpm dev
 TypeScript 5 strict mode in both repos. ESLint (typescript-eslint) + Prettier enforced.
 
 ## Recent Changes
+- 004-admin-ui: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
 - 003-deployment: Added TypeScript 5 / Node.js 22 LTS (API + Worker), React 18 / Vite 5 (FE) + Fastify 4, Drizzle ORM 0.31, BullMQ, @fastify/cors
 - 002-compact-gtfs-storage: Added TypeScript 5 / Node.js 22 LTS (existing toolchain). + Fastify 4, Drizzle ORM 0.31, `node-gtfs` 4,
-- 001-gtfs-bus-map: Added Shell / Homebrew formulae + `postgresql@16`, `postgis`, `redis`, `tippecanoe` (all via Homebrew)
 
 
 <!-- MANUAL ADDITIONS START -->

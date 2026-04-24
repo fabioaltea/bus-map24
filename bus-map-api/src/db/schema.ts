@@ -346,6 +346,7 @@ export const agenciesCompact = pgTable(
     tz: text('tz').notNull(),
     brandColor: varchar('brand_color', { length: 6 }),
     logoUrl: text('logo_url'),
+    city: varchar('city', { length: 128 }),
     coverage: geometry('coverage', { type: 'MultiPolygon' }),
   },
   (t) => ({

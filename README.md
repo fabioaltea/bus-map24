@@ -472,6 +472,10 @@ Summary:
 
 Health check: `GET /healthz` returns `{ status: "ok", db: "ok", redis: "ok" }`.
 
+**Admin UI** — set these on the Railway API service:
+- `ADMIN_PASSWORD` — strong password for `/admin` login
+- `JWT_SECRET` — min 32-char random string (`openssl rand -hex 32`)
+
 ---
 
 ## spec-kit focus
