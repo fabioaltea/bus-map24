@@ -22,6 +22,20 @@
       "when": 1776886517986,
       "tag": "0002_compact_storage",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777000000000,
+      "tag": "0004_agency_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777060000000,
+      "tag": "0005_agency_compact_city",
+      "breakpoints": true
     }
   ]
 }
