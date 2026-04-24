@@ -1,0 +1,15 @@
+{
+  "projectId": "prj_RIR8IFWnKwLpQx2LDaj2VEUqnRgk",
+  "orgId": "team_2c3SLsbED0y82BzuQR4KOwhC",
+  "settings": {
+    "createdAt": 1777035261379,
+    "framework": "vite",
+    "devCommand": null,
+    "installCommand": null,
+    "buildCommand": null,
+    "outputDirectory": null,
+    "rootDirectory": "bus-map-web",
+    "directoryListing": false,
+    "nodeVersion": "22.x"
+  }
+}
