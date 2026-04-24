@@ -28,7 +28,6 @@ export const stopHandlers = [
 
     if (agencyId) {
       // Filter by agency prefix encoded in stop id
-      const agencyRoutes = MOCK_ROUTES.filter((r) => r.agencyId === agencyId)
       const agencyPrefix = agencyId.replace('agency-', '')
       filtered = filtered.filter((s) => s.id.includes(agencyPrefix))
     }

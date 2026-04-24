@@ -110,6 +110,8 @@ export const MOCK_ROUTES: RouteFeature[] = [
     shapeGeom: multiLineString(TFL_BUS_1_COORDS),
     agencyId: 'agency-tfl',
     agencyName: 'Transport for London (TfL)',
+    fromStop: 'Westminster Bridge',
+    toStop: 'Tower Hill',
   },
   {
     id: 'route-tfl-25',
@@ -122,6 +124,8 @@ export const MOCK_ROUTES: RouteFeature[] = [
     shapeGeom: multiLineString(TFL_BUS_25_COORDS),
     agencyId: 'agency-tfl',
     agencyName: 'Transport for London (TfL)',
+    fromStop: 'Oxford Circus',
+    toStop: 'Tower Hill',
   },
   {
     id: 'route-tfl-15',
@@ -134,6 +138,8 @@ export const MOCK_ROUTES: RouteFeature[] = [
     shapeGeom: multiLineString(TFL_BUS_15_COORDS),
     agencyId: 'agency-tfl',
     agencyName: 'Transport for London (TfL)',
+    fromStop: 'Trafalgar Square',
+    toStop: 'Tower Hill',
   },
   {
     id: 'route-atac-40',
@@ -146,6 +152,8 @@ export const MOCK_ROUTES: RouteFeature[] = [
     shapeGeom: multiLineString(ATAC_40_COORDS),
     agencyId: 'agency-atac',
     agencyName: 'ATAC Roma',
+    fromStop: 'Termini',
+    toStop: 'San Pietro',
   },
   {
     id: 'route-atac-23',
@@ -158,6 +166,8 @@ export const MOCK_ROUTES: RouteFeature[] = [
     shapeGeom: multiLineString(ATAC_23_COORDS),
     agencyId: 'agency-atac',
     agencyName: 'ATAC Roma',
+    fromStop: 'Termini',
+    toStop: 'Villa Borghese',
   },
   {
     id: 'route-mta-m15',
@@ -170,6 +180,8 @@ export const MOCK_ROUTES: RouteFeature[] = [
     shapeGeom: multiLineString(MTA_M15_COORDS),
     agencyId: 'agency-mta',
     agencyName: 'MTA New York City Transit',
+    fromStop: '125 St / 1st Ave',
+    toStop: 'Houston St',
   },
   {
     id: 'route-mta-bx12',
@@ -182,6 +194,8 @@ export const MOCK_ROUTES: RouteFeature[] = [
     shapeGeom: multiLineString(MTA_BX12_COORDS),
     agencyId: 'agency-mta',
     agencyName: 'MTA New York City Transit',
+    fromStop: 'Fordham / Pelham Pkwy',
+    toStop: 'Morris Park',
   },
   {
     id: 'route-bvg-100',
@@ -194,6 +208,8 @@ export const MOCK_ROUTES: RouteFeature[] = [
     shapeGeom: multiLineString(BVG_100_COORDS),
     agencyId: 'agency-bvg',
     agencyName: 'Berliner Verkehrsbetriebe (BVG)',
+    fromStop: 'Zoologischer Garten',
+    toStop: 'Alexanderplatz',
   },
   {
     id: 'route-bvg-200',
@@ -206,6 +222,8 @@ export const MOCK_ROUTES: RouteFeature[] = [
     shapeGeom: multiLineString(BVG_200_COORDS),
     agencyId: 'agency-bvg',
     agencyName: 'Berliner Verkehrsbetriebe (BVG)',
+    fromStop: 'Wittenbergplatz',
+    toStop: 'Alexanderplatz',
   },
   {
     id: 'route-tokyo-yamanote',
@@ -218,5 +236,7 @@ export const MOCK_ROUTES: RouteFeature[] = [
     shapeGeom: multiLineString(TOKYO_YAMANOTE_COORDS),
     agencyId: 'agency-tokyometro',
     agencyName: 'Tokyo Metro',
+    fromStop: 'Shinjuku',
+    toStop: 'Osaki',
   },
 ]

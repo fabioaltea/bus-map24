@@ -27,7 +27,7 @@ const HIGH_ZOOM_STOPS = 15       // show stops regardless of selection
 
 function computeBboxFromShapeGeom(shapeGeom: string): [number, number, number, number] | null {
   try {
-    const geom = JSON.parse(shapeGeom) as GeoJSON.MultiLineString | GeoJSON.GeometryCollection
+    const geom = JSON.parse(shapeGeom) as GeoJSON.MultiLineString | GeoJSON.LineString | GeoJSON.GeometryCollection
     let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity
 
     const expand = (coords: number[][]) => {

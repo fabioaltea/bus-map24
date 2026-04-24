@@ -11,10 +11,12 @@ export function useLiveBuses(routeId: string | null): {
 } {
   const isLive = useMapStore((s) => s.isLive)
   const timelineDate = useMapStore((s) => s.timelineDate)
-  const timelineTime = useMapStore((s) => s.timelineTime)
+  const timelineSec = useMapStore((s) => s.timelineSec)
 
   const date = isLive ? new Date().toISOString().slice(0, 10) : timelineDate
-  const time = isLive ? undefined : timelineTime
+  const time = isLive
+    ? undefined
+    : `${String(Math.floor(timelineSec / 3600)).padStart(2, '0')}:${String(Math.floor((timelineSec % 3600) / 60)).padStart(2, '0')}`
 
   const { data, isLoading } = useQuery({
     queryKey: ['live-buses', routeId, date, time ?? 'live'],

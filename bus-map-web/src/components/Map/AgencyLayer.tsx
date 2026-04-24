@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import maplibregl from 'maplibre-gl'
-import type { Map } from 'maplibre-gl'
+import type { Map as MapLibreMap } from 'maplibre-gl'
 import { useViewportAgencies } from '../../hooks/useViewportAgencies.js'
 import { useMapStore } from '../../stores/map.store.js'
 import type { AgencyFeature } from '../../types/api.js'
@@ -69,7 +69,7 @@ function buildMarkerEl(agency: AgencyFeature, selected: boolean): HTMLDivElement
 }
 
 interface Props {
-  map: Map
+  map: MapLibreMap
 }
 
 export default function AgencyLayer({ map }: Props) {
@@ -81,8 +81,8 @@ export default function AgencyLayer({ map }: Props) {
   const selectAgencyRef = useRef(selectAgency)
   useEffect(() => { selectAgencyRef.current = selectAgency }, [selectAgency])
 
-  const markersRef = useRef<Map<string, { marker: maplibregl.Marker; el: HTMLDivElement }>>()
-  if (!markersRef.current) markersRef.current = new Map()
+  const markersRef = useRef<globalThis.Map<string, { marker: maplibregl.Marker; el: HTMLDivElement }>>()
+  if (!markersRef.current) markersRef.current = new globalThis.Map()
 
   useEffect(() => {
     const current = markersRef.current!

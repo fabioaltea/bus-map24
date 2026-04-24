@@ -45,7 +45,7 @@ export default function StopLayer({ map, stops, selectedStopId, onStopClick, col
           properties: { id: s.id, name: s.name, selected: s.id === selectedStopId, color },
         }
       })
-      .filter((f): f is GeoJSON.Feature => f !== null)
+      .filter((f) => f !== null) as GeoJSON.Feature[]
 
     const geojson: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features }
 
