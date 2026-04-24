@@ -110,6 +110,9 @@ export async function getAgenciesInBbox(
     centroid_wkt: string | null
     url: string | null
     timezone: string
+    brand_color: string | null
+    logo_url: string | null
+    municipality: string | null
   }>(sql`
     SELECT
       fa.external_id AS id,
@@ -120,7 +123,10 @@ export async function getAgenciesInBbox(
       ST_AsGeoJSON(ST_Envelope(ac.coverage)) AS bbox_geojson,
       ST_AsText(ST_Centroid(ac.coverage))    AS centroid_wkt,
       ac.url,
-      ac.tz AS timezone
+      ac.tz AS timezone,
+      ac.brand_color,
+      ac.logo_url,
+      fce.municipality
     FROM agencies_compact ac
     JOIN feed_agencies fa
       ON fa.feed_id = ac.feed_id AND fa.internal_id = ac.internal_id
@@ -130,7 +136,7 @@ export async function getAgenciesInBbox(
     WHERE fce.import_status = 'ready'
       AND fce.pipeline_version = 2
       AND (ac.coverage IS NULL OR ST_Intersects(ac.coverage, ${envelope}))
-    GROUP BY fa.external_id, ac.name, fce.country_code, ac.feed_id, ac.coverage, ac.url, ac.tz
+    GROUP BY fa.external_id, ac.name, fce.country_code, ac.feed_id, ac.coverage, ac.url, ac.tz, ac.brand_color, ac.logo_url, fce.municipality
     ORDER BY ac.name
     LIMIT ${limit} OFFSET ${offset}
   `)
@@ -157,9 +163,9 @@ export async function getAgenciesInBbox(
     centroid: r.centroid_wkt ?? null,
     url: r.url ?? null,
     timezone: r.timezone ?? 'UTC',
-    brandColor: null,
-    logoUrl: null,
-    city: null,
+    brandColor: r.brand_color ?? null,
+    logoUrl: r.logo_url ?? null,
+    city: r.municipality ?? null,
   }))
   return { data, total: parseInt(countRow.rows[0].count, 10) }
 }
@@ -177,6 +183,9 @@ export async function getAgencyById(id: string): Promise<AgencyDetail | null> {
     centroid_wkt: string | null
     url: string | null
     timezone: string
+    brand_color: string | null
+    logo_url: string | null
+    municipality: string | null
   }>(sql`
     SELECT
       fa.external_id                         AS id,
@@ -187,7 +196,10 @@ export async function getAgencyById(id: string): Promise<AgencyDetail | null> {
       ST_AsGeoJSON(ST_Envelope(ac.coverage)) AS bbox_geojson,
       ST_AsText(ST_Centroid(ac.coverage))    AS centroid_wkt,
       ac.url,
-      ac.tz AS timezone
+      ac.tz AS timezone,
+      ac.brand_color,
+      ac.logo_url,
+      fce.municipality
     FROM agencies_compact ac
     JOIN feed_agencies fa
       ON fa.feed_id = ac.feed_id AND fa.internal_id = ac.internal_id
@@ -195,7 +207,7 @@ export async function getAgencyById(id: string): Promise<AgencyDetail | null> {
     LEFT JOIN routes_compact rc
       ON rc.feed_id = ac.feed_id AND rc.agency_internal_id = ac.internal_id
     WHERE fa.external_id = ${id}
-    GROUP BY fa.external_id, ac.name, fce.country_code, ac.feed_id, ac.coverage, ac.url, ac.tz
+    GROUP BY fa.external_id, ac.name, fce.country_code, ac.feed_id, ac.coverage, ac.url, ac.tz, ac.brand_color, ac.logo_url, fce.municipality
     LIMIT 1
   `)
 
@@ -214,9 +226,9 @@ export async function getAgencyById(id: string): Promise<AgencyDetail | null> {
     timezone: r.timezone ?? 'UTC',
     lang: null,
     phone: null,
-    brandColor: null,
-    logoUrl: null,
-    city: null,
+    brandColor: r.brand_color ?? null,
+    logoUrl: r.logo_url ?? null,
+    city: r.municipality ?? null,
   }
 }
 

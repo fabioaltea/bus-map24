@@ -41,6 +41,7 @@ export const feedCatalogEntries = pgTable('feed_catalog_entries', {
   mobilityDbId: varchar('mobility_db_id', { length: 64 }).notNull().unique(),
   provider: varchar('provider', { length: 255 }).notNull(),
   countryCode: char('country_code', { length: 2 }).notNull(),
+  municipality: varchar('municipality', { length: 128 }),
   downloadUrl: text('download_url').notNull(),
   boundingBox: geometry('bounding_box', { type: 'Polygon' }),
   hashSha256: char('hash_sha256', { length: 64 }),
@@ -343,6 +344,8 @@ export const agenciesCompact = pgTable(
     name: text('name').notNull(),
     url: text('url'),
     tz: text('tz').notNull(),
+    brandColor: varchar('brand_color', { length: 6 }),
+    logoUrl: text('logo_url'),
     coverage: geometry('coverage', { type: 'MultiPolygon' }),
   },
   (t) => ({

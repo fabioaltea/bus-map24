@@ -125,6 +125,7 @@ export async function runCatalogSync(data: CatalogSyncJobData): Promise<void> {
       feed.latest_dataset?.hosted_url ?? feed.source_info.producer_url!
     const hashSha256 = feed.latest_dataset?.hash ?? null
     const countryCode = feed.locations?.[0]?.country_code ?? 'XX'
+    const municipality = feed.locations?.[0]?.municipality ?? null
     const bb = feed.bounding_box ?? feed.latest_dataset?.bounding_box ?? null
 
     // Check existing entry
@@ -145,6 +146,7 @@ export async function runCatalogSync(data: CatalogSyncJobData): Promise<void> {
           mobilityDbId: feed.id,
           provider: feed.provider,
           countryCode,
+          municipality,
           downloadUrl,
           boundingBox: bb ? (makeEnvelopeSql(bb) as unknown as string) : null,
           hashSha256,
@@ -156,6 +158,7 @@ export async function runCatalogSync(data: CatalogSyncJobData): Promise<void> {
           set: {
             provider: feed.provider,
             countryCode,
+            municipality,
             downloadUrl,
             boundingBox: bb ? (makeEnvelopeSql(bb) as unknown as string) : null,
             hashSha256,
@@ -178,6 +181,7 @@ export async function runCatalogSync(data: CatalogSyncJobData): Promise<void> {
         .set({
           downloadUrl,
           hashSha256,
+          municipality,
           lastCheckedAt: new Date(),
           importStatus: 'pending',
           ...(bb ? { boundingBox: makeEnvelopeSql(bb) as unknown as string } : {}),
@@ -192,10 +196,10 @@ export async function runCatalogSync(data: CatalogSyncJobData): Promise<void> {
       updated++
       enqueued++
     } else {
-      // Up-to-date — just refresh lastCheckedAt
+      // Up-to-date — just refresh lastCheckedAt + municipality
       await db
         .update(feedCatalogEntries)
-        .set({ lastCheckedAt: new Date() })
+        .set({ lastCheckedAt: new Date(), municipality })
         .where(eq(feedCatalogEntries.mobilityDbId, feed.id))
     }
   }
