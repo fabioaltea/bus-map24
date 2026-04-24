@@ -12,7 +12,7 @@ export async function runAgenciesRoutesStage(
   feedId: string,
   agencyMapper: IdMapper,
   routeMapper: IdMapper,
-  stopMapper: IdMapper,
+  _stopMapper: IdMapper,
   readFile: (name: string) => Buffer | null,
 ): Promise<void> {
   // ── Agencies ────────────────────────────────────────────────────────────────

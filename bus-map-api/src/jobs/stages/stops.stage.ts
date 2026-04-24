@@ -58,7 +58,7 @@ export async function runStopsStage(
 
 async function flushStops(
   db: DrizzleDb,
-  feedId: string,
+  _feedId: string,
   rows: Array<{
     feedId: string
     internalId: number
