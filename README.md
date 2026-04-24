@@ -458,6 +458,22 @@ Full end-to-end verification steps:
 
 ---
 
+## Deploy
+
+Frontend on **Vercel**, backend + workers + DB + Redis on **Railway**.
+
+Full step-by-step guide: [`spec-bus-map/specs/003-deployment/quickstart.md`](spec-bus-map/specs/003-deployment/quickstart.md)
+
+Summary:
+1. Railway: create PostGIS Docker service (`postgis/postgis:17-3.4`) + Redis addon + API web service + worker background service.
+2. Vercel: import `bus-map24` repo, set root = `bus-map-web`, set `VITE_API_URL` to Railway API URL.
+3. API start command: `node dist/db/migrate.js && node dist/server.js` — migrations run automatically on every deploy.
+4. Worker start command: `node dist/worker.js` — long-lived BullMQ process, no public networking.
+
+Health check: `GET /healthz` returns `{ status: "ok", db: "ok", redis: "ok" }`.
+
+---
+
 ## spec-kit focus
 
 The primary goal is validating spec-kit on a non-trivial, real-world domain.

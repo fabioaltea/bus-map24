@@ -10,7 +10,7 @@ import type {
   PaginatedResponse,
 } from '../types/api.js'
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
+const BASE_URL = import.meta.env.VITE_API_URL ?? ''
 
 async function fetchJson<T>(path: string, params?: Record<string, string>): Promise<T> {
   const url = new URL(`${BASE_URL}${path}`)

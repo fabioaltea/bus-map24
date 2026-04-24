@@ -14,10 +14,10 @@
 
 **Purpose**: Create feature branch, config files, and new entry points that everything else depends on.
 
-- [ ] T001 Create feature branch `003-deployment` from `main` and verify clean working tree
-- [ ] T002 Add `"worker": "node dist/worker.js"` and `"db:migrate:prod": "node dist/db/migrate.js"` scripts to `bus-map-api/package.json`
-- [ ] T003 [P] Create `bus-map-api/src/db/migrate.ts` — programmatic Drizzle migration runner using `migrate()` from `drizzle-orm/node-postgres/migrator`; reads `DATABASE_URL` from env; exits with code 1 on failure
-- [ ] T004 [P] Create `bus-map-api/src/worker.ts` — imports `catalogSyncWorker` from `./jobs/workers/catalog-sync.worker.js` and `feedDownloadWorker` from `./jobs/workers/feed-download.worker.js`; logs startup; handles `SIGTERM` / `SIGINT` for graceful shutdown (calls `worker.close()` on each)
+- [X] T001 Create feature branch `003-deployment` from `main` and verify clean working tree
+- [X] T002 Add `"worker": "node dist/worker.js"` and `"db:migrate:prod": "node dist/db/migrate.js"` scripts to `bus-map-api/package.json`
+- [X] T003 [P] Create `bus-map-api/src/db/migrate.ts` — programmatic Drizzle migration runner using `migrate()` from `drizzle-orm/node-postgres/migrator`; reads `DATABASE_URL` from env; exits with code 1 on failure
+- [X] T004 [P] Create `bus-map-api/src/worker.ts` — imports `catalogSyncWorker` from `./jobs/workers/catalog-sync.worker.js` and `feedDownloadWorker` from `./jobs/workers/feed-download.worker.js`; logs startup; handles `SIGTERM` / `SIGINT` for graceful shutdown (calls `worker.close()` on each)
 
 **Checkpoint**: `pnpm build` compiles `dist/worker.js` and `dist/db/migrate.js` without errors.
 
@@ -27,10 +27,10 @@
 
 **Purpose**: Changes to `bus-map-api` required by all deployment targets (CORS, health check, tsconfig).
 
-- [ ] T005 Edit `bus-map-api/src/app.ts` — update `@fastify/cors` registration: `origin` reads `process.env.CORS_ORIGIN`; if value is `'*'` or unset → `true`; otherwise split on comma and return array of trimmed strings
-- [ ] T006 Add `GET /healthz` route to `bus-map-api/src/app.ts` — runs `SELECT 1` via `db.execute(sql\`SELECT 1\`)` and pings Redis via `new Redis(REDIS_URL).ping()`; returns `{ status: 'ok'|'error', db: 'ok'|'error', redis: 'ok'|'error' }` with HTTP 200 or 503
-- [ ] T007 Verify `bus-map-api/tsconfig.build.json` includes `src/worker.ts` and `src/db/migrate.ts` in compilation (check `include` patterns or add explicit entries if needed)
-- [ ] T008 Update `bus-map-api/.env.example` — add `CORS_ORIGIN=*` entry with comment explaining production usage
+- [X] T005 Edit `bus-map-api/src/app.ts` — update `@fastify/cors` registration: `origin` reads `process.env.CORS_ORIGIN`; if value is `'*'` or unset → `true`; otherwise split on comma and return array of trimmed strings
+- [X] T006 Add `GET /healthz` route to `bus-map-api/src/app.ts` — runs `SELECT 1` via `db.execute(sql\`SELECT 1\`)` and pings Redis via `new Redis(REDIS_URL).ping()`; returns `{ status: 'ok'|'error', db: 'ok'|'error', redis: 'ok'|'error' }` with HTTP 200 or 503
+- [X] T007 Verify `bus-map-api/tsconfig.build.json` includes `src/worker.ts` and `src/db/migrate.ts` in compilation (check `include` patterns or add explicit entries if needed)
+- [X] T008 Update `bus-map-api/.env.example` — add `CORS_ORIGIN=*` entry with comment explaining production usage
 
 **Checkpoint**: `pnpm build && curl localhost:3000/healthz` returns `{ status: "ok" }`.
 
@@ -42,7 +42,7 @@
 
 **Independent test**: `vercel build` succeeds in `bus-map-web/`; SPA routes resolve; `VITE_API_URL` is read at build time.
 
-- [ ] T009 [P] [US1] Create `bus-map-web/vercel.json` —
+- [X] T009 [P] [US1] Create `bus-map-web/vercel.json` —
   ```json
   {
     "buildCommand": "pnpm build",
@@ -50,8 +50,8 @@
     "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
   }
   ```
-- [ ] T010 [P] [US1] Verify `bus-map-web/src/services/api.ts` uses `import.meta.env.VITE_API_URL ?? ''` as base URL (empty string = same-origin fallback for local dev); update if currently hardcoded to `localhost:3000`
-- [ ] T011 [US1] Smoke test: run `pnpm build` in `bus-map-web/`; verify `dist/index.html` exists and `dist/assets/` contains bundled JS
+- [X] T010 [P] [US1] Verify `bus-map-web/src/services/api.ts` uses `import.meta.env.VITE_API_URL ?? ''` as base URL (empty string = same-origin fallback for local dev); update if currently hardcoded to `localhost:3000`
+- [X] T011 [US1] Smoke test: run `pnpm build` in `bus-map-web/`; verify `dist/index.html` exists and `dist/assets/` contains bundled JS
 
 **Checkpoint**: `vercel --prod` (or Vercel dashboard import) deploys successfully. Map loads at Vercel URL.
 
@@ -63,7 +63,7 @@
 
 **Independent test**: `pnpm build && node dist/db/migrate.js && node dist/server.js` starts without error; `node dist/worker.js` logs BullMQ worker boot.
 
-- [ ] T012 [P] [US2] Create `bus-map-api/railway.json` —
+- [X] T012 [P] [US2] Create `bus-map-api/railway.json` —
   ```json
   {
     "$schema": "https://railway.app/railway.schema.json",
@@ -77,7 +77,7 @@
     }
   }
   ```
-- [ ] T013 [P] [US2] Create `bus-map-api/nixpacks.toml` to pin Node 22 and set install/build phases:
+- [X] T013 [P] [US2] Create `bus-map-api/nixpacks.toml` to pin Node 22 and set install/build phases:
   ```toml
   [phases.setup]
   nixPkgs = ["nodejs_22"]
@@ -86,7 +86,7 @@
   [phases.build]
   cmds = ["pnpm build"]
   ```
-- [ ] T014 [US2] Verify `bus-map-api/src/server.ts` listens on `HOST=0.0.0.0` (already done) and reads `PORT` from env; confirm no hardcoded port references remain
+- [X] T014 [US2] Verify `bus-map-api/src/server.ts` listens on `HOST=0.0.0.0` (already done) and reads `PORT` from env; confirm no hardcoded port references remain
 - [ ] T015 [US2] Local end-to-end smoke test: set `DATABASE_URL` + `REDIS_URL` env vars pointing to local services; run `node dist/db/migrate.js` (verify idempotent); run `node dist/server.js`; run `node dist/worker.js` in separate terminal; `curl localhost:3000/healthz` → 200
 
 **Checkpoint**: `railway up` in `bus-map-api/` deploys API; Railway logs show migration + server boot.
@@ -99,7 +99,7 @@
 
 **Independent test**: `psql $DATABASE_URL -c "SELECT PostGIS_Version()"` returns version string.
 
-- [ ] T016 [US3] Add `bus-map-api/docs/railway-postgres-setup.md` — step-by-step: create Railway service → Docker image `postgis/postgis:17-3.4` → set `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` → add volume at `/var/lib/postgresql/data` → copy internal hostname for `DATABASE_URL`
+- [X] T016 [US3] Add `bus-map-api/docs/railway-postgres-setup.md` — step-by-step: create Railway service → Docker image `postgis/postgis:17-3.4` → set `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` → add volume at `/var/lib/postgresql/data` → copy internal hostname for `DATABASE_URL`
 - [ ] T017 [US3] Verify all Drizzle migrations run clean against a fresh PostGIS DB: spin up `docker run -e POSTGRES_DB=busmapdb -e POSTGRES_USER=busmap -e POSTGRES_PASSWORD=test -p 5433:5432 postgis/postgis:17-3.4`; run `DATABASE_URL=postgresql://busmap:test@localhost:5433/busmapdb node dist/db/migrate.js`; assert exit 0
 
 **Checkpoint**: All 4 migrations apply cleanly to a fresh PostGIS 17 container.
@@ -110,8 +110,8 @@
 
 **Purpose**: `.env.example` completeness, README deploy section, final validation.
 
-- [ ] T018 [P] Update root `README.md` — add "Deploy" section with links to `quickstart.md` and one-liner summary of Vercel + Railway setup
-- [ ] T019 [P] Update `bus-map-api/.env.example` — ensure all variables from `data-model.md` are present with example values and comments
+- [X] T018 [P] Update root `README.md` — add "Deploy" section with links to `quickstart.md` and one-liner summary of Vercel + Railway setup
+- [X] T019 [P] Update `bus-map-api/.env.example` — ensure all variables from `data-model.md` are present with example values and comments
 - [ ] T020 Full end-to-end smoke check against deployed services (per `quickstart.md` step 6): health check, agencies endpoint, CORS header, worker logs in Railway dashboard
 - [ ] T021 Commit all changes, push `003-deployment` branch, open PR to `main`
 
