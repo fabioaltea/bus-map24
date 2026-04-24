@@ -2,10 +2,12 @@ node_modules/
 dist/
 .env
 .env.local
+.vercel/
 *.log
 coverage/
 playwright-report/
 test-results/
 .DS_Store
+*.tsbuildinfo
 
 */.env*
