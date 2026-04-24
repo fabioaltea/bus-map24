@@ -19,7 +19,7 @@ async function ensureCatalogSyncSchedule() {
     {
       jobId: 'catalog-sync:scheduled',
       repeat: { pattern: cronPattern },
-    },
+    }
   )
 
   console.log(`[worker] catalog-sync schedule enabled (${cronPattern})`)
