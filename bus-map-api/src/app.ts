@@ -3,6 +3,7 @@ import cors from '@fastify/cors'
 import rateLimit from '@fastify/rate-limit'
 import staticFiles from '@fastify/static'
 import path from 'node:path'
+import { mkdirSync } from 'node:fs'
 import { Redis } from 'ioredis'
 import { db } from './db/client.js'
 import { sql } from 'drizzle-orm'
@@ -32,6 +33,7 @@ export async function createApp(): Promise<FastifyInstance> {
 
   // Serve pre-generated PMTiles and GeoJSON from the tiles output directory
   const tilesDir = path.resolve(process.env.PMTILES_OUTPUT_DIR ?? path.join(process.cwd(), 'tiles'))
+  mkdirSync(tilesDir, { recursive: true })
   await app.register(staticFiles, { root: tilesDir, prefix: '/tiles/' })
 
   // RFC 7807 Problem Details error handler
