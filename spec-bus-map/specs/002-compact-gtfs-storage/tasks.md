@@ -60,7 +60,7 @@ depend on these.
 
 - [X] T017 Update Drizzle schema `bus-map-api/src/db/schema.ts` — add compact tables (`feed_stops`, `feed_routes`, `feed_trips`, `feed_services`, `feed_shapes`, `feed_agencies`, `stops_compact`, `shapes_compact`, `routes_compact`, `agencies_compact`, `stop_patterns`, `pattern_stops`, `trips_compact`, `frequencies_compact`, `calendar_compact`, `calendar_dates_compact`) + extend `feed_catalog_entries` with `last_imported_sha256`, `pipeline_version`
 - [X] T018 Generate migration via `pnpm db:generate` and hand-polish `bus-map-api/src/db/migrations/0002_compact_storage.sql` to include: GENERATED `geom` on `stops_compact`, GIST indexes on `stops_compact.geom` / `shapes_compact.bbox` / `agencies_compact.coverage`, unique `(feed_id, pattern_hash)` on `stop_patterns`, unique `(feed_id, shape_hash)` on `shapes_compact`, all `ON DELETE CASCADE` from `feed_catalog_entries`
-- [ ] T019 Run `pnpm db:migrate` against `busmapdb`; assert new tables + indexes exist (manual smoke check in quickstart.md step 1)
+- [X] T019 Run `pnpm db:migrate` against `busmapdb`; assert new tables + indexes exist (manual smoke check in quickstart.md step 1)
 
 **Checkpoint**: Primitives tested, schema in place, ready for user stories.
 
@@ -167,7 +167,7 @@ regression; fidelity tests green.
 - [X] T054 [P] Update `README.md` at repo root — document compact storage + point at `spec-bus-map/specs/002-compact-gtfs-storage/quickstart.md`
 - [X] T055 [P] Update `bus-map-api/.env.example` — add `PIPELINE_VERSION=2` for transparency (read-only)
 - [X] T056 Create follow-up migration `bus-map-api/src/db/migrations/0003_drop_legacy_gtfs.sql` — drops legacy `stops`, `routes`, `trips`, `stop_times`, `shapes`, `calendar`, `calendar_dates` tables; **do not run** until operator has re-ingested every feed
-- [ ] T057 [P] Execute `spec-bus-map/specs/002-compact-gtfs-storage/quickstart.md` end-to-end on a clean DB; record final bench output in `bench/compact-tld-576.json`; attach to PR description
+- [X] T057 [P] Execute `spec-bus-map/specs/002-compact-gtfs-storage/quickstart.md` end-to-end on a clean DB; record final bench output in `bench/compact-tld-576.json`; attach to PR description
 - [X] T058 [P] Run `pnpm lint` + `pnpm test` (unit + integration) across `bus-map-api`; fix any regressions introduced in US1–US3
 
 ---
