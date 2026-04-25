@@ -3,6 +3,8 @@ import type { DrizzleDb } from '../db/client.js'
 
 type IdMapperKind = 'stops' | 'routes' | 'trips' | 'services' | 'shapes' | 'agencies'
 
+const BULK_CHUNK_SIZE = 5_000
+
 export class IdMapper {
   private readonly cache = new Map<string, number>()
   private readonly reverseCache = new Map<number, string>()
@@ -41,18 +43,28 @@ export class IdMapper {
   }
 
   /**
-   * Bulk-upsert all externalIds in a single query and populate the in-memory cache.
-   * Use before tight loops to avoid N round-trips.
+   * Bulk-upsert all externalIds and populate the in-memory cache.
+   * Processes in chunks of BULK_CHUNK_SIZE to keep query size bounded.
    */
   async bulkGetOrCreate(externalIds: string[]): Promise<void> {
-    const unknown = externalIds.filter((id) => !this.cache.has(id))
+    const unknown = [...new Set(externalIds.filter((id) => !this.cache.has(id)))]
     if (unknown.length === 0) return
 
+    for (let i = 0; i < unknown.length; i += BULK_CHUNK_SIZE) {
+      await this.#bulkChunk(unknown.slice(i, i + BULK_CHUNK_SIZE))
+    }
+  }
+
+  async #bulkChunk(ids: string[]): Promise<void> {
     const tableName = `feed_${this.kind}`
+    // Drizzle expands JS arrays into ($1,$2,...) row expressions — cannot use ${array}::text[].
+    // Build ARRAY[...] literal inline with standard SQL string escaping (replace ' with '').
+    const arrayLiteral = `ARRAY[${ids.map((id) => `'${id.replace(/'/g, "''")}'`).join(',')}]`
+
     const result = await this.db.execute<{ external_id: string; internal_id: number }>(sql`
       WITH ranked AS (
         SELECT
-          unnest(${unknown}::text[]) AS external_id,
+          unnest(${sql.raw(arrayLiteral)}) AS external_id,
           COALESCE(
             (SELECT MAX(internal_id) FROM ${sql.identifier(tableName)}
              WHERE feed_id = ${this.feedId}::uuid),
@@ -67,8 +79,8 @@ export class IdMapper {
     `)
 
     for (const row of result.rows) {
-      this.cache.set(row.external_id, row.internal_id)
-      this.reverseCache.set(row.internal_id, row.external_id)
+      this.cache.set(row.external_id, Number(row.internal_id))
+      this.reverseCache.set(Number(row.internal_id), row.external_id)
     }
   }
 
