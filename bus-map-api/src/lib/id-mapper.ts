@@ -57,25 +57,36 @@ export class IdMapper {
 
   async #bulkChunk(ids: string[]): Promise<void> {
     const tableName = `feed_${this.kind}`
-    // Drizzle expands JS arrays into ($1,$2,...) row expressions — cannot use ${array}::text[].
-    // Build ARRAY[...] literal inline with standard SQL string escaping (replace ' with '').
+    // Drizzle expands JS arrays into ($1,$2,...) row expressions — use sql.raw ARRAY literal.
     const arrayLiteral = `ARRAY[${ids.map((id) => `'${id.replace(/'/g, "''")}'`).join(',')}]`
 
-    const result = await this.db.execute<{ external_id: string; internal_id: number }>(sql`
-      WITH ranked AS (
-        SELECT
-          unnest(${sql.raw(arrayLiteral)}) AS external_id,
-          COALESCE(
-            (SELECT MAX(internal_id) FROM ${sql.identifier(tableName)}
-             WHERE feed_id = ${this.feedId}::uuid),
-            0
-          ) + ROW_NUMBER() OVER () AS internal_id
-      )
+    // Only insert IDs not already in the table (EXCEPT), so the MAX+ROW_NUMBER range
+    // never collides with existing internal_ids. ON CONFLICT DO NOTHING as safety net for races.
+    await this.db.execute(sql`
+      WITH
+        new_ext AS (
+          SELECT unnest(${sql.raw(arrayLiteral)}) AS external_id
+          EXCEPT
+          SELECT external_id FROM ${sql.identifier(tableName)}
+          WHERE feed_id = ${this.feedId}::uuid
+        ),
+        max_id AS (
+          SELECT COALESCE(MAX(internal_id), 0) AS m
+          FROM ${sql.identifier(tableName)}
+          WHERE feed_id = ${this.feedId}::uuid
+        )
       INSERT INTO ${sql.identifier(tableName)} (feed_id, external_id, internal_id)
-      SELECT ${this.feedId}::uuid, external_id, internal_id FROM ranked
-      ON CONFLICT (feed_id, external_id) DO UPDATE
-        SET external_id = EXCLUDED.external_id
-      RETURNING external_id, internal_id
+      SELECT ${this.feedId}::uuid, e.external_id, m.m + ROW_NUMBER() OVER ()
+      FROM new_ext e, max_id m
+      ON CONFLICT DO NOTHING
+    `)
+
+    // Fetch actual internal_ids (covers both new inserts and pre-existing rows)
+    const result = await this.db.execute<{ external_id: string; internal_id: number }>(sql`
+      SELECT external_id, internal_id
+      FROM ${sql.identifier(tableName)}
+      WHERE feed_id = ${this.feedId}::uuid
+        AND external_id = ANY(${sql.raw(arrayLiteral)})
     `)
 
     for (const row of result.rows) {
