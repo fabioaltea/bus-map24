@@ -70,10 +70,13 @@ export async function runAgenciesRoutesStage(
   }
 
   // ── Compute agency coverage ──────────────────────────────────────────────────
+  // ST_ConvexHull(ST_Collect) is O(n log n); ST_Union(ST_Buffer(...)) was O(n²) and OOM-killed
+  // on large regional feeds (e.g. ARST with stops across all of Sardinia).
+  // Convex hull is sufficient for viewport intersection — no need for exact buffered union.
   await db.execute(sql`
     UPDATE agencies_compact ac
     SET coverage = (
-      SELECT ST_Multi(ST_Union(ST_Buffer(sc.geom::geography, 500)::geometry))
+      SELECT ST_Multi(ST_ConvexHull(ST_Collect(sc.geom)))
       FROM stops_compact sc
       JOIN routes_compact rc ON rc.feed_id = sc.feed_id
       WHERE sc.feed_id = ${feedId}::uuid
