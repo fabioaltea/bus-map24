@@ -138,7 +138,7 @@ export async function getAgenciesInBbox(
     WHERE fce.import_status = 'ready'
       AND fce.pipeline_version = 2
       AND (ac.coverage IS NULL OR ST_Intersects(ac.coverage, ${envelope}))
-    GROUP BY fa.external_id, ac.name, fce.country_code, ac.feed_id, ac.coverage, ac.url, ac.tz, ac.brand_color, ac.logo_url, fce.municipality
+    GROUP BY fa.external_id, ac.name, fce.country_code, ac.feed_id, ac.coverage, ac.url, ac.tz, ac.brand_color, ac.logo_url, ac.city, fce.municipality
     ORDER BY ac.name
     LIMIT ${limit} OFFSET ${offset}
   `)
@@ -211,7 +211,7 @@ export async function getAgencyById(id: string): Promise<AgencyDetail | null> {
     LEFT JOIN routes_compact rc
       ON rc.feed_id = ac.feed_id AND rc.agency_internal_id = ac.internal_id
     WHERE fa.external_id = ${id}
-    GROUP BY fa.external_id, ac.name, fce.country_code, ac.feed_id, ac.coverage, ac.url, ac.tz, ac.brand_color, ac.logo_url, fce.municipality
+    GROUP BY fa.external_id, ac.name, fce.country_code, ac.feed_id, ac.coverage, ac.url, ac.tz, ac.brand_color, ac.logo_url, ac.city, fce.municipality
     LIMIT 1
   `)
 
