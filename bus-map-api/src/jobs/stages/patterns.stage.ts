@@ -6,7 +6,7 @@ import type { DrizzleDb } from '../../db/client.js'
 import type { IdMapper } from '../../lib/id-mapper.js'
 
 function parseCsv(content: Buffer): Record<string, string>[] {
-  return parse(content, { columns: true, skip_empty_lines: true, trim: true, bom: true }) as Record<string, string>[]
+  return parse(content, { columns: true, skip_empty_lines: true, trim: true, bom: true, relax_column_count: true, relax_quotes: true }) as Record<string, string>[]
 }
 
 function parseTimeSec(t: string): number {

@@ -9,7 +9,7 @@ import type { PatternLookup } from './patterns.stage.js'
 const BATCH_SIZE = 500
 
 function parseCsv(content: Buffer): Record<string, string>[] {
-  return parse(content, { columns: true, skip_empty_lines: true, trim: true, bom: true }) as Record<string, string>[]
+  return parse(content, { columns: true, skip_empty_lines: true, trim: true, bom: true, relax_column_count: true, relax_quotes: true }) as Record<string, string>[]
 }
 
 export async function runTripsStage(
@@ -104,9 +104,13 @@ async function flushTrips(
   feedId: string,
   rows: Array<{ internalId: number; routeInternalId: number; serviceInternalId: number; patternId: bigint; startTimeSec: number; shapeInternalId: number | null; directionId: number | null; headsign: string | null }>,
 ): Promise<void> {
+  const seen = new Map<number, typeof rows[0]>()
+  for (const row of rows) seen.set(row.internalId, row)
+  const deduped = [...seen.values()]
+
   await db
     .insert(tripsCompact)
-    .values(rows.map((r) => ({
+    .values(deduped.map((r) => ({
       feedId,
       internalId: r.internalId,
       routeInternalId: r.routeInternalId,

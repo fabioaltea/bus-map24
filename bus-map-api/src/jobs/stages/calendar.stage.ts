@@ -7,7 +7,7 @@ import type { IdMapper } from '../../lib/id-mapper.js'
 const BATCH_SIZE = 500
 
 function parseCsv(content: Buffer): Record<string, string>[] {
-  return parse(content, { columns: true, skip_empty_lines: true, trim: true, bom: true }) as Record<string, string>[]
+  return parse(content, { columns: true, skip_empty_lines: true, trim: true, bom: true, relax_column_count: true, relax_quotes: true }) as Record<string, string>[]
 }
 
 export async function runCalendarStage(
@@ -84,9 +84,15 @@ async function flushCalendarDates(
   feedId: string,
   rows: Array<{ serviceInternalId: number; date: string; exceptionType: number }>,
 ): Promise<void> {
+  // Deduplicate within the batch: same (serviceInternalId, date) twice in one INSERT
+  // causes "ON CONFLICT DO UPDATE command cannot affect row a second time".
+  const seen = new Map<string, typeof rows[0]>()
+  for (const row of rows) seen.set(`${row.serviceInternalId}:${row.date}`, row)
+  const deduped = [...seen.values()]
+
   await db
     .insert(calendarDatesCompact)
-    .values(rows.map((r) => ({ feedId, serviceInternalId: r.serviceInternalId, date: r.date, exceptionType: r.exceptionType })))
+    .values(deduped.map((r) => ({ feedId, serviceInternalId: r.serviceInternalId, date: r.date, exceptionType: r.exceptionType })))
     .onConflictDoUpdate({
       target: [calendarDatesCompact.feedId, calendarDatesCompact.serviceInternalId, calendarDatesCompact.date],
       set: { exceptionType: sql`excluded.exception_type` },

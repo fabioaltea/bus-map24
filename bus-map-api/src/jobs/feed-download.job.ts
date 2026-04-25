@@ -49,7 +49,7 @@ export async function runFeedDownload(data: FeedDownloadJobData): Promise<void> 
     console.log(`[feed-download] ${mobilityDbId} — downloading ${downloadUrl}`)
     const res = await fetch(downloadUrl)
     if (!res.ok) throw new Error(`HTTP ${res.status} downloading ${downloadUrl}`)
-    const zipBuffer = Buffer.from(await res.arrayBuffer())
+    let zipBuffer: Buffer | null = Buffer.from(await res.arrayBuffer())
 
     const hashSha256 = createHash('sha256').update(zipBuffer).digest('hex')
 
@@ -79,7 +79,7 @@ export async function runFeedDownload(data: FeedDownloadJobData): Promise<void> 
     }
 
     // ── Validate zip ───────────────────────────────────────────────────────────
-    const zip = new AdmZip(zipBuffer)
+    let zip: AdmZip | null = new AdmZip(zipBuffer)
     const entries = zip.getEntries().map((e) => e.entryName.replace(/^.*\//, ''))
     for (const required of REQUIRED_FILES) {
       if (!entries.includes(required)) {
@@ -87,10 +87,22 @@ export async function runFeedDownload(data: FeedDownloadJobData): Promise<void> 
       }
     }
 
-    const readFile = (name: string): Buffer | null => {
+    // Extract all needed file buffers upfront, then free the compressed zip bytes
+    // and AdmZip object — otherwise they stay alive (via closure) for the entire
+    // multi-minute pipeline, consuming hundreds of MB on large feeds.
+    const PIPELINE_FILES = [
+      'agency.txt', 'routes.txt', 'stops.txt', 'trips.txt', 'stop_times.txt',
+      'shapes.txt', 'calendar.txt', 'calendar_dates.txt', 'frequencies.txt',
+    ]
+    const fileCache = new Map<string, Buffer>()
+    for (const name of PIPELINE_FILES) {
       const entry = zip.getEntries().find((e) => e.entryName.endsWith(name))
-      return entry ? entry.getData() : null
+      if (entry) fileCache.set(name, entry.getData())
     }
+    zip = null       // free AdmZip (holds internal reference to zipBuffer bytes)
+    zipBuffer = null // free compressed zip bytes
+
+    const readFile = (name: string): Buffer | null => fileCache.get(name) ?? null
 
     await db
       .update(feedCatalogEntries)
@@ -113,13 +125,19 @@ export async function runFeedDownload(data: FeedDownloadJobData): Promise<void> 
       runShapesStage(db, feedId, idMaps.shapes, readFile),
       runCalendarStage(db, feedId, idMaps.services, readFile),
     ])
+    fileCache.delete('shapes.txt')
+    fileCache.delete('calendar.txt')
+    fileCache.delete('calendar_dates.txt')
 
     // agencies-routes needs stops_compact to exist for coverage computation
     await runAgenciesRoutesStage(db, feedId, idMaps.agencies, idMaps.routes, idMaps.stops, readFile)
+    fileCache.delete('agency.txt')
+    fileCache.delete('routes.txt')
 
     // Stage 3: Patterns (depends on stops)
     console.log(`[feed-download] ${mobilityDbId} — stage: patterns`)
     const patternLookup = await runPatternsStage(db, feedId, idMaps.stops, idMaps.trips, readFile)
+    fileCache.delete('stop_times.txt') // free ~200MB before trips stage
 
     // Stage 4: Trips + frequencies (depends on patterns)
     console.log(`[feed-download] ${mobilityDbId} — stage: trips + frequencies`)

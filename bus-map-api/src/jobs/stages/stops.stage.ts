@@ -7,7 +7,7 @@ import type { IdMapper } from '../../lib/id-mapper.js'
 const BATCH_SIZE = 500
 
 function parseCsv(content: Buffer): Record<string, string>[] {
-  return parse(content, { columns: true, skip_empty_lines: true, trim: true, bom: true }) as Record<string, string>[]
+  return parse(content, { columns: true, skip_empty_lines: true, trim: true, bom: true, relax_column_count: true, relax_quotes: true }) as Record<string, string>[]
 }
 
 export async function runStopsStage(
@@ -64,9 +64,13 @@ async function flushStops(
   feedId: string,
   rows: Array<{ internalId: number; name: string; latE6: number; lonE6: number; parentInternalId: number | null }>,
 ): Promise<void> {
+  const seen = new Map<number, typeof rows[0]>()
+  for (const row of rows) seen.set(row.internalId, row)
+  const deduped = [...seen.values()]
+
   await db
     .insert(stopsCompact)
-    .values(rows.map((r) => ({ feedId, internalId: r.internalId, name: r.name, latE6: r.latE6, lonE6: r.lonE6, parentInternalId: r.parentInternalId })))
+    .values(deduped.map((r) => ({ feedId, internalId: r.internalId, name: r.name, latE6: r.latE6, lonE6: r.lonE6, parentInternalId: r.parentInternalId })))
     .onConflictDoUpdate({
       target: [stopsCompact.feedId, stopsCompact.internalId],
       set: {
