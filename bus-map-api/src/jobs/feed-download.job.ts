@@ -141,13 +141,17 @@ export async function runFeedDownload(data: FeedDownloadJobData): Promise<void> 
 
     console.log(`[feed-download] ${mobilityDbId} — import complete ✓`)
   } catch (err) {
-    await db
-      .update(feedCatalogEntries)
-      .set({
-        importStatus: 'error',
-        errorMessage: err instanceof Error ? err.message : String(err),
-      })
-      .where(eq(feedCatalogEntries.id, feedId))
+    try {
+      await db
+        .update(feedCatalogEntries)
+        .set({
+          importStatus: 'error',
+          errorMessage: err instanceof Error ? err.message : String(err),
+        })
+        .where(eq(feedCatalogEntries.id, feedId))
+    } catch {
+      // DB itself may be unavailable (e.g. recovery mode) — let BullMQ retry
+    }
     throw err
   }
 }

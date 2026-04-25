@@ -16,8 +16,8 @@ export const QUEUE_TILE_GEN = 'tile-gen'
 
 // ── Default job options ──────────────────────────────────────────────────────
 
-const DEFAULT_ATTEMPTS = 3
-const BACKOFF_DELAY_MS = 5_000
+const DEFAULT_ATTEMPTS = 5
+const BACKOFF_DELAY_MS = 30_000 // Railway DB recovery takes 30-60s; schedule: 30s, 60s, 120s, 240s
 
 // ── Queues ───────────────────────────────────────────────────────────────────
 
