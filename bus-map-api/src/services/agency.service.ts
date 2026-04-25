@@ -112,6 +112,7 @@ export async function getAgenciesInBbox(
     timezone: string
     brand_color: string | null
     logo_url: string | null
+    city: string | null
     municipality: string | null
   }>(sql`
     SELECT
@@ -126,6 +127,7 @@ export async function getAgenciesInBbox(
       ac.tz AS timezone,
       ac.brand_color,
       ac.logo_url,
+      ac.city,
       fce.municipality
     FROM agencies_compact ac
     JOIN feed_agencies fa
@@ -165,7 +167,7 @@ export async function getAgenciesInBbox(
     timezone: r.timezone ?? 'UTC',
     brandColor: r.brand_color ?? null,
     logoUrl: r.logo_url ?? null,
-    city: r.municipality ?? null,
+    city: r.city ?? r.municipality ?? null,
   }))
   return { data, total: parseInt(countRow.rows[0].count, 10) }
 }
@@ -185,6 +187,7 @@ export async function getAgencyById(id: string): Promise<AgencyDetail | null> {
     timezone: string
     brand_color: string | null
     logo_url: string | null
+    city: string | null
     municipality: string | null
   }>(sql`
     SELECT
@@ -199,6 +202,7 @@ export async function getAgencyById(id: string): Promise<AgencyDetail | null> {
       ac.tz AS timezone,
       ac.brand_color,
       ac.logo_url,
+      ac.city,
       fce.municipality
     FROM agencies_compact ac
     JOIN feed_agencies fa
@@ -228,7 +232,7 @@ export async function getAgencyById(id: string): Promise<AgencyDetail | null> {
     phone: null,
     brandColor: r.brand_color ?? null,
     logoUrl: r.logo_url ?? null,
-    city: r.municipality ?? null,
+    city: r.city ?? r.municipality ?? null,
   }
 }
 
