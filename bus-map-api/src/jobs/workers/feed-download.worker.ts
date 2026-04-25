@@ -18,6 +18,8 @@ export const feedDownloadWorker = new Worker<FeedDownloadJobData>(
   {
     connection,
     concurrency: MAX_WORKERS,
+    lockDuration: 10 * 60 * 1000, // 10 min — large GTFS feeds take several minutes to parse
+    maxStalledCount: 1,
   },
 )
 

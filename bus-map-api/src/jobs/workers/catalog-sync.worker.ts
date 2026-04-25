@@ -15,7 +15,9 @@ export const catalogSyncWorker = new Worker<CatalogSyncJobData>(
   },
   {
     connection,
-    concurrency: 1, // catalog sync is inherently serial
+    concurrency: 1,
+    lockDuration: 5 * 60 * 1000, // 5 min — catalog sync paginates MobilityDB API
+    maxStalledCount: 1,
   },
 )
 
