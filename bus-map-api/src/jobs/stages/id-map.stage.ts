@@ -27,68 +27,49 @@ export async function runIdMapStage(
   const services = new IdMapper(db, feedId, 'services')
   const shapes = new IdMapper(db, feedId, 'shapes')
 
-  // agencies
   const agencyFile = readFile('agency.txt')
   if (agencyFile) {
-    for (const row of parseCsv(agencyFile)) {
-      const id = row['agency_id']?.trim() || 'default'
-      await agencies.getOrCreate(id)
-    }
+    const rows = parseCsv(agencyFile)
+    await agencies.bulkGetOrCreate(rows.map((r) => r['agency_id']?.trim() || 'default'))
   }
 
-  // routes
   const routeFile = readFile('routes.txt')
   if (routeFile) {
-    for (const row of parseCsv(routeFile)) {
-      await routes.getOrCreate(row['route_id'])
-      const agId = row['agency_id']?.trim() || 'default'
-      await agencies.getOrCreate(agId)
-    }
+    const rows = parseCsv(routeFile)
+    await routes.bulkGetOrCreate(rows.map((r) => r['route_id']))
+    await agencies.bulkGetOrCreate([...new Set(rows.map((r) => r['agency_id']?.trim() || 'default'))])
   }
 
-  // stops
   const stopFile = readFile('stops.txt')
   if (stopFile) {
-    for (const row of parseCsv(stopFile)) {
-      await stops.getOrCreate(row['stop_id'])
-    }
+    const rows = parseCsv(stopFile)
+    await stops.bulkGetOrCreate(rows.map((r) => r['stop_id']).filter(Boolean))
   }
 
-  // shapes
   const shapeFile = readFile('shapes.txt')
   if (shapeFile) {
-    const seenShapes = new Set<string>()
-    for (const row of parseCsv(shapeFile)) {
-      const sid = row['shape_id']
-      if (!seenShapes.has(sid)) {
-        seenShapes.add(sid)
-        await shapes.getOrCreate(sid)
-      }
-    }
+    const rows = parseCsv(shapeFile)
+    await shapes.bulkGetOrCreate([...new Set(rows.map((r) => r['shape_id']).filter(Boolean))])
   }
 
-  // services (from calendar + calendar_dates)
+  const serviceIds = new Set<string>()
   const calFile = readFile('calendar.txt')
   if (calFile) {
-    for (const row of parseCsv(calFile)) {
-      await services.getOrCreate(row['service_id'])
-    }
+    for (const row of parseCsv(calFile)) serviceIds.add(row['service_id'])
   }
   const calDatesFile = readFile('calendar_dates.txt')
   if (calDatesFile) {
-    for (const row of parseCsv(calDatesFile)) {
-      await services.getOrCreate(row['service_id'])
-    }
+    for (const row of parseCsv(calDatesFile)) serviceIds.add(row['service_id'])
   }
 
-  // trips
   const tripFile = readFile('trips.txt')
   if (tripFile) {
-    for (const row of parseCsv(tripFile)) {
-      await trips.getOrCreate(row['trip_id'])
-      await services.getOrCreate(row['service_id'])
-    }
+    const rows = parseCsv(tripFile)
+    await trips.bulkGetOrCreate(rows.map((r) => r['trip_id']))
+    for (const row of rows) serviceIds.add(row['service_id'])
   }
+
+  if (serviceIds.size > 0) await services.bulkGetOrCreate([...serviceIds])
 
   return { agencies, routes, stops, trips, services, shapes }
 }

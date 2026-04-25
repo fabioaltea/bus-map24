@@ -9,6 +9,7 @@
 import AdmZip from 'adm-zip'
 import { createHash } from 'node:crypto'
 import { eq, sql } from 'drizzle-orm'
+import { UnrecoverableError } from 'bullmq'
 import { db } from '../db/client.js'
 import { feedCatalogEntries } from '../db/schema.js'
 import { tileGenQueue, type FeedDownloadJobData, type TileGenJobData } from './queues.js'
@@ -25,6 +26,18 @@ const REQUIRED_FILES = ['agency.txt', 'routes.txt', 'stops.txt', 'trips.txt', 's
 
 export async function runFeedDownload(data: FeedDownloadJobData): Promise<void> {
   const { feedId, mobilityDbId, downloadUrl, forceRefresh = false } = data
+
+  const [exists] = await db
+    .select({ id: feedCatalogEntries.id })
+    .from(feedCatalogEntries)
+    .where(eq(feedCatalogEntries.id, feedId))
+    .limit(1)
+
+  if (!exists) {
+    throw new UnrecoverableError(
+      `Feed ${feedId} (${mobilityDbId}) not found in feed_catalog_entries — likely lost in a DB crash. Re-add the feed from the admin panel.`
+    )
+  }
 
   await db
     .update(feedCatalogEntries)
