@@ -31,7 +31,6 @@ export async function runShapesStage(
 
   const rows = parseCsv(shapeFile)
 
-  // Group by shape_id, sort by sequence
   const shapeMap = new Map<string, Array<{ lat: number; lon: number; seq: number }>>()
   for (const row of rows) {
     const sid = row['shape_id']
@@ -43,10 +42,8 @@ export async function runShapesStage(
     })
   }
 
-  // Pre-populate id cache in one query instead of one query per shape
   await shapeMapper.bulkGetOrCreate([...shapeMap.keys()])
 
-  // Process all shapes in memory (CPU only — no DB)
   const processed: ShapeRow[] = []
   for (const [shapeId, pts] of shapeMap) {
     pts.sort((a, b) => a.seq - b.seq)
@@ -54,44 +51,33 @@ export async function runShapesStage(
 
     const coords: Array<[number, number]> = pts.map((p) => [p.lat, p.lon])
     const { polyline6, shapeHash } = await simplifyAndHash(coords)
-    const internalId = await shapeMapper.getOrCreate(shapeId) // cache hit — no DB
+    const internalId = await shapeMapper.getOrCreate(shapeId)
 
     const lats = pts.map((p) => p.lat)
     const lons = pts.map((p) => p.lon)
-    processed.push({
-      internalId,
-      polyline6,
-      shapeHash,
-      minLat: Math.min(...lats),
-      maxLat: Math.max(...lats),
-      minLon: Math.min(...lons),
-      maxLon: Math.max(...lons),
-    })
+    processed.push({ internalId, polyline6, shapeHash, minLat: Math.min(...lats), maxLat: Math.max(...lats), minLon: Math.min(...lons), maxLon: Math.max(...lons) })
   }
 
-  // Bulk-insert in chunks of BATCH_SIZE — one query per chunk instead of one per shape
   for (let i = 0; i < processed.length; i += BATCH_SIZE) {
-    const chunk = processed.slice(i, i + BATCH_SIZE)
-    await db.execute(sql`
-      INSERT INTO shapes_compact
-        (feed_id, internal_id, polyline6, simplify_eps_m, shape_hash, bbox)
-      SELECT
-        ${feedId}::uuid,
-        t.internal_id,
-        t.polyline6,
-        5.0,
-        t.shape_hash::bigint,
-        ST_MakeEnvelope(t.min_lon, t.min_lat, t.max_lon, t.max_lat, 4326)
-      FROM unnest(
-        ${chunk.map((r) => r.internalId)}::int[],
-        ${chunk.map((r) => r.polyline6)}::text[],
-        ${chunk.map((r) => r.shapeHash.toString())}::text[],
-        ${chunk.map((r) => r.minLat)}::float8[],
-        ${chunk.map((r) => r.maxLat)}::float8[],
-        ${chunk.map((r) => r.minLon)}::float8[],
-        ${chunk.map((r) => r.maxLon)}::float8[]
-      ) AS t(internal_id, polyline6, shape_hash, min_lat, max_lat, min_lon, max_lon)
-      ON CONFLICT (feed_id, shape_hash) DO NOTHING
-    `)
+    await flushShapes(db, feedId, processed.slice(i, i + BATCH_SIZE))
   }
+}
+
+async function flushShapes(db: DrizzleDb, feedId: string, rows: ShapeRow[]): Promise<void> {
+  // shapes_compact.bbox requires ST_MakeEnvelope (PostGIS) so we can't use the query builder.
+  // All interpolated values are computed numbers/UUIDs — no user-supplied strings except polyline6.
+  // polyline6 uses only chars in ASCII 63-126; '$' (ASCII 36) cannot appear, so $POLY$...$POLY$
+  // dollar-quoting is safe and handles any valid polyline string.
+  const valuesList = rows
+    .map(
+      (r) =>
+        `('${feedId}'::uuid, ${r.internalId}, $POLY$${r.polyline6}$POLY$, 5.0, ${r.shapeHash}::bigint, ST_MakeEnvelope(${r.minLon}, ${r.minLat}, ${r.maxLon}, ${r.maxLat}, 4326))`
+    )
+    .join(', ')
+
+  await db.execute(sql`
+    INSERT INTO shapes_compact (feed_id, internal_id, polyline6, simplify_eps_m, shape_hash, bbox)
+    VALUES ${sql.raw(valuesList)}
+    ON CONFLICT (feed_id, shape_hash) DO NOTHING
+  `)
 }

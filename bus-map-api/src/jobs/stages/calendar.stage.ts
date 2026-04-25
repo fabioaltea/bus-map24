@@ -1,5 +1,6 @@
 import { parse } from 'csv-parse/sync'
 import { sql } from 'drizzle-orm'
+import { calendarCompact, calendarDatesCompact } from '../../db/schema.js'
 import type { DrizzleDb } from '../../db/client.js'
 import type { IdMapper } from '../../lib/id-mapper.js'
 
@@ -21,34 +22,36 @@ export async function runCalendarStage(
     await serviceMapper.bulkGetOrCreate(rows.map((r) => r['service_id']))
 
     for (const row of rows) {
-      const serviceInternalId = await serviceMapper.getOrCreate(row['service_id']) // cache hit
-      await db.execute(sql`
-        INSERT INTO calendar_compact
-          (feed_id, service_internal_id, monday, tuesday, wednesday, thursday, friday, saturday, sunday, start_date, end_date)
-        VALUES (
-          ${feedId}::uuid,
-          ${serviceInternalId},
-          ${row['monday'] === '1'},
-          ${row['tuesday'] === '1'},
-          ${row['wednesday'] === '1'},
-          ${row['thursday'] === '1'},
-          ${row['friday'] === '1'},
-          ${row['saturday'] === '1'},
-          ${row['sunday'] === '1'},
-          ${row['start_date']}::date,
-          ${row['end_date']}::date
-        )
-        ON CONFLICT (feed_id, service_internal_id) DO UPDATE
-          SET monday = EXCLUDED.monday,
-              tuesday = EXCLUDED.tuesday,
-              wednesday = EXCLUDED.wednesday,
-              thursday = EXCLUDED.thursday,
-              friday = EXCLUDED.friday,
-              saturday = EXCLUDED.saturday,
-              sunday = EXCLUDED.sunday,
-              start_date = EXCLUDED.start_date,
-              end_date = EXCLUDED.end_date
-      `)
+      const serviceInternalId = await serviceMapper.getOrCreate(row['service_id'])
+      await db
+        .insert(calendarCompact)
+        .values({
+          feedId,
+          serviceInternalId,
+          monday: row['monday'] === '1',
+          tuesday: row['tuesday'] === '1',
+          wednesday: row['wednesday'] === '1',
+          thursday: row['thursday'] === '1',
+          friday: row['friday'] === '1',
+          saturday: row['saturday'] === '1',
+          sunday: row['sunday'] === '1',
+          startDate: row['start_date'],
+          endDate: row['end_date'],
+        })
+        .onConflictDoUpdate({
+          target: [calendarCompact.feedId, calendarCompact.serviceInternalId],
+          set: {
+            monday: sql`excluded.monday`,
+            tuesday: sql`excluded.tuesday`,
+            wednesday: sql`excluded.wednesday`,
+            thursday: sql`excluded.thursday`,
+            friday: sql`excluded.friday`,
+            saturday: sql`excluded.saturday`,
+            sunday: sql`excluded.sunday`,
+            startDate: sql`excluded.start_date`,
+            endDate: sql`excluded.end_date`,
+          },
+        })
     }
   }
 
@@ -61,7 +64,7 @@ export async function runCalendarStage(
     const batch: DateRow[] = []
 
     for (const row of rows) {
-      const serviceInternalId = await serviceMapper.getOrCreate(row['service_id']) // cache hit
+      const serviceInternalId = await serviceMapper.getOrCreate(row['service_id'])
       batch.push({
         serviceInternalId,
         date: row['date'],
@@ -81,20 +84,11 @@ async function flushCalendarDates(
   feedId: string,
   rows: Array<{ serviceInternalId: number; date: string; exceptionType: number }>,
 ): Promise<void> {
-  await db.execute(sql`
-    INSERT INTO calendar_dates_compact
-      (feed_id, service_internal_id, date, exception_type)
-    SELECT
-      ${feedId}::uuid,
-      t.service_internal_id,
-      t.date::date,
-      t.exception_type
-    FROM unnest(
-      ${rows.map((r) => r.serviceInternalId)}::int[],
-      ${rows.map((r) => r.date)}::text[],
-      ${rows.map((r) => r.exceptionType)}::int[]
-    ) AS t(service_internal_id, date, exception_type)
-    ON CONFLICT (feed_id, service_internal_id, date) DO UPDATE
-      SET exception_type = EXCLUDED.exception_type
-  `)
+  await db
+    .insert(calendarDatesCompact)
+    .values(rows.map((r) => ({ feedId, serviceInternalId: r.serviceInternalId, date: r.date, exceptionType: r.exceptionType })))
+    .onConflictDoUpdate({
+      target: [calendarDatesCompact.feedId, calendarDatesCompact.serviceInternalId, calendarDatesCompact.date],
+      set: { exceptionType: sql`excluded.exception_type` },
+    })
 }

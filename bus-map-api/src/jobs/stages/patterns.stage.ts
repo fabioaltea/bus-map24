@@ -1,5 +1,6 @@
 import { parse } from 'csv-parse/sync'
 import { sql } from 'drizzle-orm'
+import { patternStops } from '../../db/schema.js'
 import { buildPattern } from '../../lib/pattern-builder.js'
 import type { DrizzleDb } from '../../db/client.js'
 import type { IdMapper } from '../../lib/id-mapper.js'
@@ -88,24 +89,17 @@ export async function runPatternsStage(
       patternId = BigInt(result.rows[0].pattern_id)
       hashToPatternId.set(hashKey, patternId)
 
-      // Insert all pattern_stops in one query
-      await db.execute(sql`
-        INSERT INTO pattern_stops
-          (pattern_id, seq, stop_internal_id, offset_arrival_sec, offset_departure_sec)
-        SELECT
-          ${patternId.toString()}::bigint,
-          t.seq,
-          t.stop_internal_id,
-          t.offset_arrival_sec,
-          t.offset_departure_sec
-        FROM unnest(
-          ${pattern.stops.map((_, i) => i)}::int[],
-          ${pattern.stops.map((s) => s.stopInternalId)}::int[],
-          ${pattern.stops.map((s) => s.offsetArrivalSec)}::int[],
-          ${pattern.stops.map((s) => s.offsetDepartureSec)}::int[]
-        ) AS t(seq, stop_internal_id, offset_arrival_sec, offset_departure_sec)
-        ON CONFLICT (pattern_id, seq) DO NOTHING
-      `)
+      const pid = patternId // narrowed: always defined after assignment above
+      await db
+        .insert(patternStops)
+        .values(pattern.stops.map((s, i) => ({
+          patternId: pid,
+          seq: i,
+          stopInternalId: s.stopInternalId,
+          offsetArrivalSec: s.offsetArrivalSec,
+          offsetDepartureSec: s.offsetDepartureSec,
+        })))
+        .onConflictDoNothing()
     }
 
     const tripInternalId = await tripMapper.getOrCreate(tripId)

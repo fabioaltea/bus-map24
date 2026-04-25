@@ -1,5 +1,6 @@
 import { parse } from 'csv-parse/sync'
 import { sql } from 'drizzle-orm'
+import { stopsCompact } from '../../db/schema.js'
 import type { DrizzleDb } from '../../db/client.js'
 import type { IdMapper } from '../../lib/id-mapper.js'
 
@@ -20,7 +21,6 @@ export async function runStopsStage(
 
   const rows = parseCsv(stopFile)
 
-  // Pre-populate id cache in one query
   const allStopIds = [...new Set(rows.flatMap((r) => [r['stop_id'], r['parent_station']].filter(Boolean)))]
   await stopMapper.bulkGetOrCreate(allStopIds as string[])
 
@@ -38,9 +38,9 @@ export async function runStopsStage(
     const lon = parseFloat(row['stop_lon'])
     if (isNaN(lat) || isNaN(lon)) continue
 
-    const internalId = await stopMapper.getOrCreate(row['stop_id']) // cache hit
+    const internalId = await stopMapper.getOrCreate(row['stop_id'])
     const parentInternalId = row['parent_station']
-      ? await stopMapper.getOrCreate(row['parent_station']) // cache hit
+      ? await stopMapper.getOrCreate(row['parent_station'])
       : null
 
     batch.push({
@@ -56,42 +56,24 @@ export async function runStopsStage(
     }
   }
 
-  if (batch.length > 0) {
-    await flushStops(db, feedId, batch)
-  }
+  if (batch.length > 0) await flushStops(db, feedId, batch)
 }
 
 async function flushStops(
   db: DrizzleDb,
   feedId: string,
-  rows: Array<{
-    internalId: number
-    name: string
-    latE6: number
-    lonE6: number
-    parentInternalId: number | null
-  }>,
+  rows: Array<{ internalId: number; name: string; latE6: number; lonE6: number; parentInternalId: number | null }>,
 ): Promise<void> {
-  await db.execute(sql`
-    INSERT INTO stops_compact (feed_id, internal_id, name, lat_e6, lon_e6, parent_internal_id)
-    SELECT
-      ${feedId}::uuid,
-      t.internal_id,
-      t.name,
-      t.lat_e6,
-      t.lon_e6,
-      t.parent_internal_id
-    FROM unnest(
-      ${rows.map((r) => r.internalId)}::int[],
-      ${rows.map((r) => r.name)}::text[],
-      ${rows.map((r) => r.latE6)}::int[],
-      ${rows.map((r) => r.lonE6)}::int[],
-      ${rows.map((r) => r.parentInternalId ?? null)}::int[]
-    ) AS t(internal_id, name, lat_e6, lon_e6, parent_internal_id)
-    ON CONFLICT (feed_id, internal_id) DO UPDATE
-      SET name = EXCLUDED.name,
-          lat_e6 = EXCLUDED.lat_e6,
-          lon_e6 = EXCLUDED.lon_e6,
-          parent_internal_id = EXCLUDED.parent_internal_id
-  `)
+  await db
+    .insert(stopsCompact)
+    .values(rows.map((r) => ({ feedId, internalId: r.internalId, name: r.name, latE6: r.latE6, lonE6: r.lonE6, parentInternalId: r.parentInternalId })))
+    .onConflictDoUpdate({
+      target: [stopsCompact.feedId, stopsCompact.internalId],
+      set: {
+        name: sql`excluded.name`,
+        latE6: sql`excluded.lat_e6`,
+        lonE6: sql`excluded.lon_e6`,
+        parentInternalId: sql`excluded.parent_internal_id`,
+      },
+    })
 }
