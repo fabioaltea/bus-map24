@@ -106,7 +106,7 @@ export default function FeedListPage() {
             {error}
           </div>
         )}
-        {!loading && !error && <FeedTable feeds={feeds} />}
+        {!loading && !error && <FeedTable feeds={feeds} onDeleted={loadFeeds} />}
       </div>
 
       {showModal && <AddFeedModal onSuccess={loadFeeds} onClose={() => setShowModal(false)} />}

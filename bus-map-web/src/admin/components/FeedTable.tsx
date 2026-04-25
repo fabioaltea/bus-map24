@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { AdminFeedListItem } from '../services/admin-api.js'
+import { deleteAdminFeed } from '../services/admin-api.js'
 import { c, getStatusStyle } from '../styles.js'
 
 export function StatusBadge({ status }: { status: string }) {
@@ -48,8 +50,25 @@ function MetaBadge({ complete }: { complete: boolean }) {
   )
 }
 
-export default function FeedTable({ feeds }: { feeds: AdminFeedListItem[] }) {
+export default function FeedTable({ feeds, onDeleted }: { feeds: AdminFeedListItem[]; onDeleted?: () => void }) {
   const navigate = useNavigate()
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  async function handleDelete(id: string, e: React.MouseEvent) {
+    e.stopPropagation()
+    if (confirmId !== id) { setConfirmId(id); return }
+    setDeleting(true)
+    try {
+      await deleteAdminFeed(id)
+      setConfirmId(null)
+      onDeleted?.()
+    } catch {
+      // ignore — row stays
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   if (feeds.length === 0) {
     return (
@@ -73,7 +92,7 @@ export default function FeedTable({ feeds }: { feeds: AdminFeedListItem[] }) {
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead>
           <tr style={{ borderBottom: `1px solid ${c.border}` }}>
-            {['Provider', 'Country', 'Status', 'Last Imported', 'Metadata'].map((h) => (
+            {['Provider', 'Country', 'Status', 'Last Imported', 'Metadata', ''].map((h) => (
               <th key={h} style={{
                 padding: '10px 16px', textAlign: 'left',
                 fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
@@ -114,6 +133,43 @@ export default function FeedTable({ feeds }: { feeds: AdminFeedListItem[] }) {
               </td>
               <td style={{ padding: '13px 16px' }}>
                 <MetaBadge complete={feed.metadataComplete} />
+              </td>
+              <td style={{ padding: '13px 16px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                {confirmId === feed.id ? (
+                  <span style={{ display: 'inline-flex', gap: 6 }}>
+                    <button
+                      disabled={deleting}
+                      onClick={(e) => handleDelete(feed.id, e)}
+                      style={{
+                        padding: '3px 10px', borderRadius: c.radiusSm, fontSize: 11,
+                        fontWeight: 600, cursor: 'pointer',
+                        background: c.danger, color: '#fff', border: 'none',
+                      }}
+                    >{deleting ? '…' : 'Confirm'}</button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setConfirmId(null) }}
+                      style={{
+                        padding: '3px 10px', borderRadius: c.radiusSm, fontSize: 11,
+                        cursor: 'pointer', background: 'transparent',
+                        color: c.textMuted, border: `1px solid ${c.border}`,
+                      }}
+                    >Cancel</button>
+                  </span>
+                ) : (
+                  <button
+                    onClick={(e) => handleDelete(feed.id, e)}
+                    title="Delete feed"
+                    style={{
+                      background: 'transparent', border: 'none',
+                      color: c.textXMuted, cursor: 'pointer',
+                      padding: '4px 6px', borderRadius: c.radiusSm,
+                      fontSize: 14, lineHeight: 1,
+                      transition: 'color 0.1s',
+                    }}
+                    onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = c.danger)}
+                    onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = c.textXMuted)}
+                  >🗑</button>
+                )}
               </td>
             </tr>
           ))}

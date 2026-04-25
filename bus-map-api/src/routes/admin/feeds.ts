@@ -241,6 +241,25 @@ const feedsRoutes: FastifyPluginAsync = async (app) => {
     }
   )
 
+  // DELETE /feeds/:id
+  app.delete<{ Params: { id: string } }>('/feeds/:id', async (request, reply) => {
+    const [deleted] = await db
+      .delete(feedCatalogEntries)
+      .where(eq(feedCatalogEntries.id, request.params.id))
+      .returning({ id: feedCatalogEntries.id })
+
+    if (!deleted) {
+      return reply.status(404).send({
+        type: '/errors/not-found',
+        title: 'Not Found',
+        status: 404,
+        detail: `Feed ${request.params.id} not found`,
+      })
+    }
+
+    return reply.status(204).send()
+  })
+
   // POST /feeds/:id/refresh
   app.post<{ Params: { id: string } }>('/feeds/:id/refresh', async (request, reply) => {
     const [feed] = await db

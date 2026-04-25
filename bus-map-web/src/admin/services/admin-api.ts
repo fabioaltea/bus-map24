@@ -23,6 +23,7 @@ export async function adminFetch<T>(path: string, options: RequestInit = {}): Pr
     const body = await res.json().catch(() => ({}))
     throw Object.assign(new Error(body.detail ?? res.statusText), { status: res.status, body })
   }
+  if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
 }
 
@@ -77,6 +78,10 @@ export function refreshAdminFeed(id: string) {
   return adminFetch<{ feedId: string; status: string }>(`/api/admin/feeds/${id}/refresh`, {
     method: 'POST',
   })
+}
+
+export function deleteAdminFeed(id: string) {
+  return adminFetch<void>(`/api/admin/feeds/${id}`, { method: 'DELETE' })
 }
 
 export function patchAdminAgency(
