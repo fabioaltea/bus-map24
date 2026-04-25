@@ -277,12 +277,12 @@ const feedsRoutes: FastifyPluginAsync = async (app) => {
       })
     }
 
-    if (feed.importStatus === 'downloading' || feed.importStatus === 'importing') {
+    if (feed.importStatus === 'downloading') {
       return reply.status(409).send({
         type: '/errors/conflict',
         title: 'Conflict',
         status: 409,
-        detail: 'Import already in progress',
+        detail: 'Download already in progress',
       })
     }
 
