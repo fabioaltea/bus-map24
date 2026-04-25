@@ -4,8 +4,20 @@ import { simplifyAndHash } from '../../lib/shape-dedup.js'
 import type { DrizzleDb } from '../../db/client.js'
 import type { IdMapper } from '../../lib/id-mapper.js'
 
+const BATCH_SIZE = 500
+
 function parseCsv(content: Buffer): Record<string, string>[] {
   return parse(content, { columns: true, skip_empty_lines: true, trim: true, bom: true }) as Record<string, string>[]
+}
+
+interface ShapeRow {
+  internalId: number
+  polyline6: string
+  shapeHash: bigint
+  minLat: number
+  maxLat: number
+  minLon: number
+  maxLon: number
 }
 
 export async function runShapesStage(
@@ -31,34 +43,54 @@ export async function runShapesStage(
     })
   }
 
+  // Pre-populate id cache in one query instead of one query per shape
+  await shapeMapper.bulkGetOrCreate([...shapeMap.keys()])
+
+  // Process all shapes in memory (CPU only — no DB)
+  const processed: ShapeRow[] = []
   for (const [shapeId, pts] of shapeMap) {
     pts.sort((a, b) => a.seq - b.seq)
     if (pts.length < 2) continue
 
     const coords: Array<[number, number]> = pts.map((p) => [p.lat, p.lon])
     const { polyline6, shapeHash } = await simplifyAndHash(coords)
+    const internalId = await shapeMapper.getOrCreate(shapeId) // cache hit — no DB
 
-    const internalId = await shapeMapper.getOrCreate(shapeId)
-
-    // Compute bbox from decoded coords
     const lats = pts.map((p) => p.lat)
     const lons = pts.map((p) => p.lon)
-    const minLat = Math.min(...lats)
-    const maxLat = Math.max(...lats)
-    const minLon = Math.min(...lons)
-    const maxLon = Math.max(...lons)
+    processed.push({
+      internalId,
+      polyline6,
+      shapeHash,
+      minLat: Math.min(...lats),
+      maxLat: Math.max(...lats),
+      minLon: Math.min(...lons),
+      maxLon: Math.max(...lons),
+    })
+  }
 
+  // Bulk-insert in chunks of BATCH_SIZE — one query per chunk instead of one per shape
+  for (let i = 0; i < processed.length; i += BATCH_SIZE) {
+    const chunk = processed.slice(i, i + BATCH_SIZE)
     await db.execute(sql`
       INSERT INTO shapes_compact
         (feed_id, internal_id, polyline6, simplify_eps_m, shape_hash, bbox)
-      VALUES (
+      SELECT
         ${feedId}::uuid,
-        ${internalId},
-        ${polyline6},
+        t.internal_id,
+        t.polyline6,
         5.0,
-        ${shapeHash.toString()}::bigint,
-        ST_MakeEnvelope(${minLon}, ${minLat}, ${maxLon}, ${maxLat}, 4326)
-      )
+        t.shape_hash::bigint,
+        ST_MakeEnvelope(t.min_lon, t.min_lat, t.max_lon, t.max_lat, 4326)
+      FROM unnest(
+        ${chunk.map((r) => r.internalId)}::int[],
+        ${chunk.map((r) => r.polyline6)}::text[],
+        ${chunk.map((r) => r.shapeHash.toString())}::text[],
+        ${chunk.map((r) => r.minLat)}::float8[],
+        ${chunk.map((r) => r.maxLat)}::float8[],
+        ${chunk.map((r) => r.minLon)}::float8[],
+        ${chunk.map((r) => r.maxLon)}::float8[]
+      ) AS t(internal_id, polyline6, shape_hash, min_lat, max_lat, min_lon, max_lon)
       ON CONFLICT (feed_id, shape_hash) DO NOTHING
     `)
   }

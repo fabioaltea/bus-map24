@@ -19,8 +19,12 @@ export async function runStopsStage(
   if (!stopFile) return
 
   const rows = parseCsv(stopFile)
+
+  // Pre-populate id cache in one query
+  const allStopIds = [...new Set(rows.flatMap((r) => [r['stop_id'], r['parent_station']].filter(Boolean)))]
+  await stopMapper.bulkGetOrCreate(allStopIds as string[])
+
   const batch: Array<{
-    feedId: string
     internalId: number
     name: string
     latE6: number
@@ -30,20 +34,21 @@ export async function runStopsStage(
 
   for (const row of rows) {
     if (!row['stop_lat'] || !row['stop_lon']) continue
-    const internalId = await stopMapper.getOrCreate(row['stop_id'])
     const lat = parseFloat(row['stop_lat'])
     const lon = parseFloat(row['stop_lon'])
     if (isNaN(lat) || isNaN(lon)) continue
 
+    const internalId = await stopMapper.getOrCreate(row['stop_id']) // cache hit
+    const parentInternalId = row['parent_station']
+      ? await stopMapper.getOrCreate(row['parent_station']) // cache hit
+      : null
+
     batch.push({
-      feedId,
       internalId,
       name: row['stop_name'] ?? row['stop_id'],
       latE6: Math.round(lat * 1e6),
       lonE6: Math.round(lon * 1e6),
-      parentInternalId: row['parent_station']
-        ? await stopMapper.getOrCreate(row['parent_station'])
-        : null,
+      parentInternalId,
     })
 
     if (batch.length >= BATCH_SIZE) {
@@ -58,9 +63,8 @@ export async function runStopsStage(
 
 async function flushStops(
   db: DrizzleDb,
-  _feedId: string,
+  feedId: string,
   rows: Array<{
-    feedId: string
     internalId: number
     name: string
     latE6: number
@@ -68,22 +72,26 @@ async function flushStops(
     parentInternalId: number | null
   }>,
 ): Promise<void> {
-  for (const row of rows) {
-    await db.execute(sql`
-      INSERT INTO stops_compact (feed_id, internal_id, name, lat_e6, lon_e6, parent_internal_id)
-      VALUES (
-        ${row.feedId}::uuid,
-        ${row.internalId},
-        ${row.name},
-        ${row.latE6},
-        ${row.lonE6},
-        ${row.parentInternalId}
-      )
-      ON CONFLICT (feed_id, internal_id) DO UPDATE
-        SET name = EXCLUDED.name,
-            lat_e6 = EXCLUDED.lat_e6,
-            lon_e6 = EXCLUDED.lon_e6,
-            parent_internal_id = EXCLUDED.parent_internal_id
-    `)
-  }
+  await db.execute(sql`
+    INSERT INTO stops_compact (feed_id, internal_id, name, lat_e6, lon_e6, parent_internal_id)
+    SELECT
+      ${feedId}::uuid,
+      t.internal_id,
+      t.name,
+      t.lat_e6,
+      t.lon_e6,
+      t.parent_internal_id
+    FROM unnest(
+      ${rows.map((r) => r.internalId)}::int[],
+      ${rows.map((r) => r.name)}::text[],
+      ${rows.map((r) => r.latE6)}::int[],
+      ${rows.map((r) => r.lonE6)}::int[],
+      ${rows.map((r) => r.parentInternalId ?? null)}::int[]
+    ) AS t(internal_id, name, lat_e6, lon_e6, parent_internal_id)
+    ON CONFLICT (feed_id, internal_id) DO UPDATE
+      SET name = EXCLUDED.name,
+          lat_e6 = EXCLUDED.lat_e6,
+          lon_e6 = EXCLUDED.lon_e6,
+          parent_internal_id = EXCLUDED.parent_internal_id
+  `)
 }

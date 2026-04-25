@@ -88,21 +88,24 @@ export async function runPatternsStage(
       patternId = BigInt(result.rows[0].pattern_id)
       hashToPatternId.set(hashKey, patternId)
 
-      // Insert pattern_stops
-      for (const [i, stop] of pattern.stops.entries()) {
-        await db.execute(sql`
-          INSERT INTO pattern_stops
-            (pattern_id, seq, stop_internal_id, offset_arrival_sec, offset_departure_sec)
-          VALUES (
-            ${patternId.toString()}::bigint,
-            ${i},
-            ${stop.stopInternalId},
-            ${stop.offsetArrivalSec},
-            ${stop.offsetDepartureSec}
-          )
-          ON CONFLICT (pattern_id, seq) DO NOTHING
-        `)
-      }
+      // Insert all pattern_stops in one query
+      await db.execute(sql`
+        INSERT INTO pattern_stops
+          (pattern_id, seq, stop_internal_id, offset_arrival_sec, offset_departure_sec)
+        SELECT
+          ${patternId.toString()}::bigint,
+          t.seq,
+          t.stop_internal_id,
+          t.offset_arrival_sec,
+          t.offset_departure_sec
+        FROM unnest(
+          ${pattern.stops.map((_, i) => i)}::int[],
+          ${pattern.stops.map((s) => s.stopInternalId)}::int[],
+          ${pattern.stops.map((s) => s.offsetArrivalSec)}::int[],
+          ${pattern.stops.map((s) => s.offsetDepartureSec)}::int[]
+        ) AS t(seq, stop_internal_id, offset_arrival_sec, offset_departure_sec)
+        ON CONFLICT (pattern_id, seq) DO NOTHING
+      `)
     }
 
     const tripInternalId = await tripMapper.getOrCreate(tripId)
