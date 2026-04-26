@@ -81,12 +81,35 @@ export default function AgencyLayer({ map }: Props) {
   const selectAgencyRef = useRef(selectAgency)
   useEffect(() => { selectAgencyRef.current = selectAgency }, [selectAgency])
 
-  const markersRef = useRef<globalThis.Map<string, { marker: maplibregl.Marker; el: HTMLDivElement }>>()
+  const markersRef = useRef<globalThis.Map<string, { marker: maplibregl.Marker; el: HTMLDivElement; offset: [number, number] }>>()
   if (!markersRef.current) markersRef.current = new globalThis.Map()
 
   useEffect(() => {
     const current = markersRef.current!
     const newIds = new Set(agencies.map((a) => a.id))
+
+    // Compute spiderfy offsets: agencies within ~111m (3 decimal places) get spread radially
+    const positionGroups = new Map<string, AgencyFeature[]>()
+    for (const agency of agencies) {
+      if (!agency.centroid) continue
+      const coords = parseWkt(agency.centroid)
+      if (!coords) continue
+      const key = `${coords[0].toFixed(3)},${coords[1].toFixed(3)}`
+      if (!positionGroups.has(key)) positionGroups.set(key, [])
+      positionGroups.get(key)!.push(agency)
+    }
+    const offsets = new Map<string, [number, number]>()
+    for (const group of positionGroups.values()) {
+      if (group.length <= 1) {
+        for (const a of group) offsets.set(a.id, [0, 0])
+      } else {
+        const R = 26 + group.length * 3
+        group.forEach((a, i) => {
+          const angle = (2 * Math.PI * i) / group.length - Math.PI / 2
+          offsets.set(a.id, [Math.round(Math.cos(angle) * R), Math.round(Math.sin(angle) * R)])
+        })
+      }
+    }
 
     // Remove stale
     for (const [id, { marker }] of current.entries()) {
@@ -103,8 +126,14 @@ export default function AgencyLayer({ map }: Props) {
       if (!coords) continue
 
       const selected = agency.id === selectedAgencyId
+      const offset = offsets.get(agency.id) ?? [0, 0]
+      const existing = current.get(agency.id)
+      const offsetChanged = existing && (existing.offset[0] !== offset[0] || existing.offset[1] !== offset[1])
 
-      if (!current.has(agency.id)) {
+      if (!existing || offsetChanged) {
+        // Create (or recreate after offset change)
+        existing?.marker.remove()
+
         const el = buildMarkerEl(agency, selected)
         el.addEventListener('click', () => {
           selectAgencyRef.current(
@@ -112,14 +141,14 @@ export default function AgencyLayer({ map }: Props) {
           )
         })
 
-        const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+        const marker = new maplibregl.Marker({ element: el, anchor: 'center', offset })
           .setLngLat(coords)
           .addTo(map)
 
-        current.set(agency.id, { marker, el })
+        current.set(agency.id, { marker, el, offset })
       } else {
         // Update selection styling without recreating
-        const { el } = current.get(agency.id)!
+        const { el } = existing
         const col = agency.brandColor ? `#${agency.brandColor}` : agencyColor(agency.id)
         el.style.border = `3px solid ${selected ? col : col + 'aa'}`
         el.style.boxShadow = `0 2px 10px rgba(0,0,0,0.5), 0 0 0 ${selected ? '3px' : '0px'} ${col}66`
